@@ -83,16 +83,12 @@ async def seed_db():
         await db.refresh(br_wf)
 
         # 6. Rooms
-        rm_a = Room(branch_id=br_wf.id, name="Room A", description="Quiet Zone", capacity=10)
+        rm_a = Room(branch_id=br_wf.id, name="Room A", description="Quiet Zone", capacity=10, facilities=facilities)
         rm_b = Room(branch_id=br_wf.id, name="Room B", description="Collaborative Zone", capacity=15)
         rm_meet = Room(branch_id=br_wf.id, name="Meeting Room", description="For meetings", capacity=5)
         db.add_all([rm_a, rm_b, rm_meet])
         await db.commit()
         await db.refresh(rm_a)
-
-        # Add facilities to Room A
-        rm_a.facilities.extend(facilities)
-        await db.commit()
 
         # 7. Seats
         seats = []

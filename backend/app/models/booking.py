@@ -16,6 +16,12 @@ class PaymentStatus(str, enum.Enum):
     FAILED = "FAILED"
     REFUNDED = "REFUNDED"
 
+class BookingType(str, enum.Enum):
+    SEAT = "SEAT"
+    DAY_PASS = "DAY_PASS"
+    MEETING_ROOM = "MEETING_ROOM"
+    CONFERENCE_ROOM = "CONFERENCE_ROOM"
+
 class TimeSlot(BaseModel):
     __tablename__ = "time_slots"
 
@@ -29,16 +35,30 @@ class Booking(BaseModel):
     __tablename__ = "bookings"
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
-    seat_id: Mapped[str] = mapped_column(ForeignKey("seats.id"))
+    booking_type: Mapped[BookingType] = mapped_column(Enum(BookingType), default=BookingType.SEAT)
+    location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"))
+    branch_id: Mapped[str] = mapped_column(ForeignKey("branches.id"))
+    
+    seat_id: Mapped[str | None] = mapped_column(ForeignKey("seats.id"), nullable=True)
+    day_pass_id: Mapped[str | None] = mapped_column(ForeignKey("day_passes.id"), nullable=True)
+    room_id: Mapped[str | None] = mapped_column(ForeignKey("rooms.id"), nullable=True)
+    
     booking_date: Mapped[date] = mapped_column(Date)
-    time_slot_id: Mapped[str] = mapped_column(ForeignKey("time_slots.id"))
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    time_slot_id: Mapped[str | None] = mapped_column(ForeignKey("time_slots.id"), nullable=True)
+    
     status: Mapped[BookingStatus] = mapped_column(Enum(BookingStatus), default=BookingStatus.PENDING)
     amount: Mapped[float] = mapped_column(Numeric(10, 2))
     stripe_session_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
     user = relationship("User", back_populates="bookings")
     seat = relationship("Seat", back_populates="bookings")
+    day_pass = relationship("DayPass", back_populates="bookings")
+    room = relationship("Room", back_populates="bookings")
     time_slot = relationship("TimeSlot", back_populates="bookings")
+    location = relationship("Location", back_populates="bookings")
+    branch = relationship("Branch", back_populates="bookings")
     payment = relationship("Payment", back_populates="booking", uselist=False)
 
     __table_args__ = (
