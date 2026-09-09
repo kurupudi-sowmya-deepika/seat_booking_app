@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMsal } from '@azure/msal-react';
@@ -8,6 +8,10 @@ const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const { instance } = useMsal();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleEntraLogin = async () => {
     try {
@@ -20,8 +24,35 @@ const Login: React.FC = () => {
 
       login(res.data.access_token, userRes.data);
       navigate('/');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.response?.data?.detail || err.message || 'Azure AD login failed.');
+    }
+  };
+
+  const handleLocalLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', email);
+      formData.append('password', password);
+
+      const res = await api.post('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
+
+      const userRes = await api.get('/auth/me', {
+        headers: { Authorization: `Bearer ${res.data.access_token}` }
+      });
+
+      login(res.data.access_token, userRes.data);
+      navigate('/');
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.detail || 'Invalid email or password');
     }
   };
 
@@ -37,14 +68,9 @@ const Login: React.FC = () => {
           <div style={{ position: 'relative', zIndex: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <img src="/bosch-logo.png" alt="Bosch Logo" style={{ height: '2.5rem', objectFit: 'contain' }} />
-              <span style={{ color: 'var(--secondary-color)', fontSize: '1.875rem', fontWeight: 'bold', letterSpacing: '-0.025em' }}>BOSCH</span>
             </div>
 
             <h1 style={{ fontSize: '2.25rem', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '1.5rem' }}>Seat Booking Management</h1>
-
-            <div className="pill-tag">
-              Enterprise Quality Assurance
-            </div>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '3rem' }}>
               © 2026 Bosch. All rights reserved.
@@ -58,14 +84,51 @@ const Login: React.FC = () => {
             Secure Authentication
           </div>
 
-          <h2 style={{ fontSize: '1.875rem', color: 'var(--text-primary)', fontWeight: '500', marginBottom: '0.5rem' }}>Welcome to</h2>
-          <h2 style={{ fontSize: '1.875rem', color: 'var(--text-primary)', fontWeight: '500', marginBottom: '1.5rem' }}>Seat Booking Management</h2>
-
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '2.5rem' }}>
-            Sign in with your Bosch Azure AD account
+            Sign in to continue
           </p>
 
-          <button onClick={handleEntraLogin} className="btn btn-primary" style={{ width: '100%', maxWidth: '320px', padding: '0.875rem 1.5rem', gap: '0.75rem' }}>
+          {error && (
+            <div style={{ color: 'var(--danger-color)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleLocalLogin} style={{ width: '100%', maxWidth: '320px', marginBottom: '1.5rem' }}>
+            <div className="input-group">
+              <label className="input-label" style={{ textAlign: 'left' }}>Email Address</label>
+              <input 
+                type="email" 
+                className="input-field" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required 
+              />
+            </div>
+            
+            <div className="input-group">
+              <label className="input-label" style={{ textAlign: 'left' }}>Password</label>
+              <input 
+                type="password" 
+                className="input-field" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '1rem' }}>
+              Sign In
+            </button>
+          </form>
+
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%', maxWidth: '320px', marginBottom: '1.5rem' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }}></div>
+            <span style={{ padding: '0 1rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>OR</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border-color)' }}></div>
+          </div>
+
+          <button type="button" onClick={handleEntraLogin} className="btn btn-secondary" style={{ width: '100%', maxWidth: '320px', padding: '0.875rem 1.5rem', gap: '0.75rem' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 21 21">
               <path fill="#f35325" d="M1 1h9v9H1z" />
               <path fill="#81bc06" d="M11 1h9v9h-9z" />

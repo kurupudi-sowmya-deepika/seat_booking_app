@@ -1,8 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
 :root {
   /* Bosch Color Palette */
-  --bg-color: #f4f7f9; 
+  --bg-color: #f4f7f9; /* Clean light grey background */
   --surface-color: #ffffff; 
   --surface-color-light: #f8f9fa; 
   
@@ -12,7 +13,7 @@
 
   --secondary-color: #e20015; /* Bosch Red */
   
-  --text-primary: #212224; 
+  --text-primary: #212224; /* Dark grey for primary text */
   --text-secondary: #71767c; 
   --text-muted: #94999f; 
   
@@ -42,12 +43,6 @@
   --shadow-glow: 0 0 15px var(--primary-glow);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
@@ -56,24 +51,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a {
-  color: var(--primary-color);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: var(--primary-hover);
-}
-
-/* Glassmorphism utilities */
+/* Standard Panel utilities (formerly glassmorphism) */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Typography utilities */
