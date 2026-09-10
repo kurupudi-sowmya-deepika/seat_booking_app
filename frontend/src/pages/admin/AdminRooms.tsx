@@ -17,6 +17,7 @@ export const AdminRooms: React.FC = () => {
     description: '',
     room_type: 'WORKSPACE',
     capacity: 10,
+    floor: null as number | null,
     price_per_hour: 0,
     facility_ids: [] as string[],
     status: 'ACTIVE'
@@ -54,6 +55,7 @@ export const AdminRooms: React.FC = () => {
       description: '',
       room_type: 'WORKSPACE',
       capacity: 10,
+      floor: null,
       price_per_hour: 0,
       facility_ids: [],
       status: 'ACTIVE'
@@ -70,6 +72,7 @@ export const AdminRooms: React.FC = () => {
       description: rm.description || '',
       room_type: rm.room_type || 'WORKSPACE',
       capacity: rm.capacity || 10,
+      floor: rm.floor ?? null,
       price_per_hour: rm.price_per_hour || 0,
       facility_ids: (rm.facilities || []).map((f: any) => f.id),
       status: rm.status
@@ -164,6 +167,7 @@ export const AdminRooms: React.FC = () => {
                   <th className="py-3 px-4">Room Name</th>
                   <th className="py-3 px-4">Branch</th>
                   <th className="py-3 px-4">Room Type</th>
+                  <th className="py-3 px-4">Floor</th>
                   <th className="py-3 px-4">Capacity</th>
                   <th className="py-3 px-4">Hourly Price</th>
                   <th className="py-3 px-4">Facilities</th>
@@ -183,6 +187,13 @@ export const AdminRooms: React.FC = () => {
                       }`}>
                         {rm.room_type || 'WORKSPACE'}
                       </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-700">
+                      {rm.floor != null ? (
+                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-md">Floor {rm.floor}</span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-gray-800">{rm.capacity} Persons</td>
                     <td className="py-3.5 px-4 font-semibold text-gray-800">
@@ -264,7 +275,7 @@ export const AdminRooms: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block font-semibold text-gray-600 mb-1">Room Type</label>
                     <select
@@ -272,9 +283,9 @@ export const AdminRooms: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, room_type: e.target.value })}
                       className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#007bc0]/30"
                     >
-                      <option value="WORKSPACE">WORKSPACE (Desks)</option>
-                      <option value="MEETING_ROOM">MEETING_ROOM (Hourly)</option>
-                      <option value="CONFERENCE_ROOM">CONFERENCE_ROOM (Hourly)</option>
+                      <option value="WORKSPACE">WORKSPACE</option>
+                      <option value="MEETING_ROOM">MEETING_ROOM</option>
+                      <option value="CONFERENCE_ROOM">CONFERENCE_ROOM</option>
                     </select>
                   </div>
                   <div>
@@ -285,6 +296,17 @@ export const AdminRooms: React.FC = () => {
                       required
                       value={formData.capacity}
                       onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#007bc0]/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-gray-600 mb-1">Floor No.</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 1"
+                      value={formData.floor ?? ''}
+                      onChange={(e) => setFormData({ ...formData, floor: e.target.value === '' ? null : Number(e.target.value) })}
                       className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#007bc0]/30"
                     />
                   </div>

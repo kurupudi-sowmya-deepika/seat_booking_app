@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import api from '../services/api';
 import { Link } from 'react-router-dom';
 import { 
@@ -7,7 +8,7 @@ import {
   AlertCircle, X, ShieldCheck, Tag, Building2, Users,
   Download, Edit3, ArrowUpRight, Plus, Sparkles
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { DataTable } from '../components/DataTable';
 
 export const MyBookings: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -84,7 +85,7 @@ export const MyBookings: React.FC = () => {
       const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/calendar' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `seatsync_booking_${bookingId}.ics`);
+      link.setAttribute('download', `seat_booking_${bookingId}.ics`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -174,12 +175,15 @@ export const MyBookings: React.FC = () => {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
+      const id = (b.id || '').toLowerCase();
+      const date = (b.booking_date || '').toLowerCase();
       const loc = (b.location_name || '').toLowerCase();
       const br = (b.branch_name || '').toLowerCase();
       const type = (b.booking_type || '').toLowerCase();
       const room = (b.room_name || '').toLowerCase();
-      const id = (b.id || '').toLowerCase();
-      if (!loc.includes(q) && !br.includes(q) && !type.includes(q) && !room.includes(q) && !id.includes(q)) {
+      
+      // Search by booking ID or date primarily
+      if (!id.includes(q) && !date.includes(q) && !loc.includes(q) && !br.includes(q) && !type.includes(q) && !room.includes(q)) {
         return false;
       }
     }
@@ -278,7 +282,7 @@ export const MyBookings: React.FC = () => {
           <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by branch, room, or ID..."
+            placeholder="Search booking ID or date..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
@@ -311,7 +315,34 @@ export const MyBookings: React.FC = () => {
       ) : filteredBookings.length === 0 ? (
         <div className="p-12 text-center text-gray-400 bg-white rounded-3xl border">No bookings found in this category.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <>
+        <div className="hidden lg:block">
+          <DataTable
+            columns={[
+              { key: 'id', header: 'Booking ID', render: (b) => <span className="font-mono font-bold">#{b.id.slice(0, 8).toUpperCase()}</span> },
+              { key: 'booking_type', header: 'Type', render: (b) => b.booking_type?.replace('_', ' ') },
+              { key: 'resource', header: 'Room / Workspace', render: (b) => b.seat_number ? `Desk ${b.seat_number}` : b.room_name || b.day_pass_name || b.booking_type },
+              { key: 'location', header: 'Location', render: (b) => `${b.location_name || ''} · ${b.branch_name || ''}` },
+              { key: 'booking_date', header: 'Date' },
+              { key: 'start', header: 'Start', render: (b) => b.start_time ? String(b.start_time).slice(0, 5) : (b.time_slot_label || 'Full day').split(' - ')[0] },
+              { key: 'end', header: 'End', render: (b) => b.end_time ? String(b.end_time).slice(0, 5) : (b.time_slot_label || 'Full day').split(' - ')[1] || '—' },
+              { key: 'number_of_people', header: 'Users', render: (b) => b.number_of_people || 1 },
+              { key: 'amount', header: 'Total', render: (b) => `₹${b.amount}` },
+              { key: 'status', header: 'Status', render: (b) => getBadge(b) },
+              { key: 'actions', header: 'Actions', render: (b) => (
+                <div className="flex gap-2">
+                  <button onClick={() => setSelectedBookingForDetails(b)} className="px-2 py-1 bg-blue-50 text-[#007bc0] rounded-lg text-[12px] font-bold">View</button>
+                  {b.status === 'CONFIRMED' && new Date(b.booking_date) >= today && (
+                    <button onClick={() => setCancellingBookingId(b.id)} className="px-2 py-1 bg-red-50 text-red-600 rounded-lg text-[12px] font-bold">Cancel</button>
+                  )}
+                </div>
+              ) },
+            ]}
+            rows={filteredBookings}
+            rowKey={(b) => b.id}
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:hidden">
           {filteredBookings.map((b) => {
             const isConfirmedUpcoming = b.status === 'CONFIRMED' && new Date(b.booking_date) >= today;
             const isHourlyRoom = b.booking_type === 'MEETING_ROOM' || b.booking_type === 'CONFERENCE_ROOM';
@@ -424,6 +455,7 @@ export const MyBookings: React.FC = () => {
             );
           })}
         </div>
+        </>
       )}
 
       {/* Modify Modal */}
@@ -595,7 +627,7 @@ export const MyBookings: React.FC = () => {
 
             <div className="text-center pb-4 border-b border-gray-100">
               <span className="px-3 py-1 bg-blue-100 text-[#007bc0] text-[10px] font-black uppercase tracking-wider rounded-full">
-                SeatSync Workspace Pass
+                Seat Booking App Workspace Pass
               </span>
               <h3 className="text-xl font-black text-gray-900 mt-2">
                 {selectedBookingForDetails.seat_number ? `Desk ${selectedBookingForDetails.seat_number}` : selectedBookingForDetails.room_name || selectedBookingForDetails.booking_type}

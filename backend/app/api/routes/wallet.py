@@ -45,6 +45,36 @@ async def get_my_wallet(
         )
         wallet = result.scalar_one()
         
+    # Provide the requested one-time demo balance when this user next opens the app.
+    # The ledger check prevents it being issued again after the balance is spent.
+    if (
+        settings.DEMO_WALLET_MODE
+        and current_user.email.lower() == settings.DEMO_INITIAL_CREDIT_EMAIL.lower()
+    ):
+        initial_credit = (await db.execute(
+            select(CreditTransaction).where(
+                CreditTransaction.user_id == current_user.id,
+                CreditTransaction.reference_type == "DEMO_INITIAL_CREDIT"
+            )
+        )).scalar_one_or_none()
+        if not initial_credit:
+            balance_before = wallet.balance
+            wallet.balance += Decimal(str(settings.DEMO_INITIAL_CREDIT_AMOUNT))
+            db.add(CreditTransaction(
+                wallet_id=wallet.id,
+                user_id=current_user.id,
+                transaction_type=TransactionType.CREDIT,
+                amount=settings.DEMO_INITIAL_CREDIT_AMOUNT,
+                balance_before=balance_before,
+                balance_after=wallet.balance,
+                reference_type="DEMO_INITIAL_CREDIT",
+                reference_id=None,
+                description="Initial demo wallet credit",
+                status="SUCCESS"
+            ))
+            await db.commit()
+            await db.refresh(wallet)
+
     return wallet
 
 @router.get("/transactions", response_model=List[TransactionResponse])
@@ -79,6 +109,25 @@ async def create_topup_session(
         await db.commit()
         await db.refresh(wallet)
 
+    if settings.DEMO_WALLET_MODE:
+        balance_before = wallet.balance
+        wallet.balance += Decimal(str(topup_in.amount))
+        db.add(CreditTransaction(
+            wallet_id=wallet.id,
+            user_id=current_user.id,
+            transaction_type=TransactionType.CREDIT,
+            amount=topup_in.amount,
+            balance_before=balance_before,
+            balance_after=wallet.balance,
+            reference_type="DEMO_TOPUP",
+            reference_id=None,
+            description="Demo wallet credit",
+            status="SUCCESS"
+        ))
+        await db.commit()
+        await db.refresh(wallet)
+        return TopupResponse(balance=float(wallet.balance), demo_credit=True)
+
     try:
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
@@ -88,7 +137,7 @@ async def create_topup_session(
                     'unit_amount': int(topup_in.amount * 100),
                     'product_data': {
                         'name': 'Wallet Top-up',
-                        'description': 'Add credits to your SeatSync workspace wallet',
+                        'description': 'Add credits to your Seat Booking App wallet',
                     },
                 },
                 'quantity': 1,
@@ -194,4 +243,3 @@ async def adjust_wallet_admin(
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from app.db.database import get_db
@@ -13,8 +13,16 @@ from app.models.user import User
 router = APIRouter()
 
 @router.get("/", response_model=List[BranchResponse])
-async def get_branches(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Branch).offset(skip).limit(limit))
+async def get_branches(
+    location_id: Optional[UUID] = None,
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    query = select(Branch)
+    if location_id:
+        query = query.where(Branch.location_id == location_id)
+    result = await db.execute(query.offset(skip).limit(limit))
     return result.scalars().all()
 
 @router.post("/", response_model=BranchResponse)

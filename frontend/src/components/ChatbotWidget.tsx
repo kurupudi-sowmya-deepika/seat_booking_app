@@ -19,7 +19,7 @@ export const ChatbotWidget: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'init',
-      text: "👋 Hi! I'm the SeatSync AI Concierge. I can help you search live workspace availability, book seats, reserve meeting rooms, buy day passes, and manage your credits.",
+      text: "👋 Hi! I'm the Seat Booking App assistant. I can help you search live workspace availability, book seats, reserve meeting rooms, buy day passes, and manage your credits.",
       isBot: true,
       actions: ['Find seats in Bangalore', 'Book a Day Pass', 'Find meeting room for 6', 'Check wallet balance']
     }
@@ -232,7 +232,7 @@ export const ChatbotWidget: React.FC = () => {
               <Bot size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-sm leading-tight">SeatSync AI Concierge</h3>
+              <h3 className="font-bold text-sm leading-tight">Seat Booking App Assistant</h3>
               <p className="text-[10px] text-blue-100 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online & Ready
               </p>

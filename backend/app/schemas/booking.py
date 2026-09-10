@@ -18,6 +18,10 @@ class BookingCreate(BaseModel):
     time_slot_id: Optional[UUID] = None
     start_time: Optional[time] = None
     end_time: Optional[time] = None
+    
+    # For Day Pass - multiple users support
+    number_of_people: Optional[int] = 1
+    additional_users: Optional[List[Dict[str, str]]] = None  # List of {name, email}
 
 class BookingModifyRequest(BaseModel):
     booking_date: Optional[date] = None
@@ -46,6 +50,8 @@ class BookingResponse(BaseModel):
     end_time: Optional[time] = None
     status: BookingStatus
     amount: float
+    number_of_people: Optional[int] = 1
+    additional_users: Optional[List[Dict[str, str]]] = None
     created_at: Optional[datetime] = None
     
     class Config:
@@ -62,6 +68,7 @@ class BookingDetailResponse(BookingResponse):
     day_pass_name: Optional[str] = None
     time_slot_label: Optional[str] = None
     facilities: Optional[List[str]] = []
+    amenities: Optional[List[str]] = []
     
     class Config:
         from_attributes = True
@@ -82,6 +89,8 @@ class DayPassAvailability(BaseModel):
     booked_count: int
     available_capacity: int
     status: str # "AVAILABLE", "SOLD_OUT"
+    amenities: Optional[List[str]] = []
+    currency: Optional[str] = "INR"
 
 class RoomAvailability(BaseModel):
     room_id: UUID
@@ -91,7 +100,33 @@ class RoomAvailability(BaseModel):
     room_type: Optional[str] = "WORKSPACE"
     facilities: Optional[List[str]] = []
     seats_count: Optional[int] = 0
+    floor: Optional[int] = None
+    available_capacity: Optional[int] = None
     status: str # "AVAILABLE", "UNAVAILABLE"
+    currency: Optional[str] = "INR"
+
+class RoomTimelineSlot(BaseModel):
+    start_time: time
+    end_time: time
+    status: str # "AVAILABLE", "BOOKED"
+    is_mine: bool = False
+    booking_id: Optional[UUID] = None
+    booked_by: Optional[str] = None
+    booking_type: Optional[str] = None
+    booking_start: Optional[time] = None
+    booking_end: Optional[time] = None
+
+
+class RoomTimelineResponse(BaseModel):
+    room_id: UUID
+    name: str
+    floor: Optional[int] = None
+    capacity: int
+    room_type: str
+    price_per_hour: float
+    facilities: List[str] = []
+    status: str
+    slots: List[RoomTimelineSlot]
 
 class AlternativeResourceOption(BaseModel):
     id: UUID

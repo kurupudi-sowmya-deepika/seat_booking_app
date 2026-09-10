@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { MsalProvider } from '@azure/msal-react';
 import { msalInstance } from './auth/msalConfig';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LocationProvider } from './context/LocationContext';
 
 // Layouts
 import MainLayout from './layouts/MainLayout';
@@ -42,6 +43,9 @@ import AdminConferenceRooms from './pages/admin/AdminConferenceRooms';
 import AdminTimeSlots from './pages/admin/AdminTimeSlots';
 import AdminSettings from './pages/admin/AdminSettings';
 
+// Components
+import LocationSelectionModal from './components/LocationSelectionModal';
+
 const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) => {
   const { user, loading } = useAuth();
   
@@ -66,57 +70,60 @@ function App() {
   return (
     <MsalProvider instance={msalInstance}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            
-            {/* User Routes */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Dashboard />} />
-              <Route path="booking" element={<Booking />} />
-              <Route path="day-pass" element={<DayPass />} />
-              <Route path="meeting-rooms" element={<MeetingRooms />} />
-              <Route path="conference-rooms" element={<ConferenceRooms />} />
-              <Route path="visitors" element={<Visitors />} />
-              <Route path="booking/success" element={<BookingSuccess />} />
-              <Route path="my-bookings" element={<MyBookings />} />
-              <Route path="wallet" element={<Wallet />} />
-              <Route path="transactions" element={<Transactions />} />
-              <Route path="profile" element={<Profile />} />
-            </Route>
+        <LocationProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              
+              {/* User Routes */}
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <MainLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Dashboard />} />
+                <Route path="booking" element={<Booking />} />
+                <Route path="day-pass" element={<DayPass />} />
+                <Route path="meeting-rooms" element={<MeetingRooms />} />
+                <Route path="conference-rooms" element={<ConferenceRooms />} />
+                <Route path="visitors" element={<Visitors />} />
+                <Route path="booking/success" element={<BookingSuccess />} />
+                <Route path="my-bookings" element={<MyBookings />} />
+                <Route path="wallet" element={<Wallet />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="profile" element={<Profile />} />
+              </Route>
 
-            {/* Admin Routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute adminOnly={true}>
-                <AdminLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<AdminDashboard />} />
-              <Route path="reports" element={<AdminReports />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="bookings" element={<AdminBookings />} />
-              <Route path="wallets" element={<AdminWallets />} />
-              <Route path="locations" element={<AdminLocations />} />
-              <Route path="branches" element={<AdminBranches />} />
-              <Route path="rooms" element={<AdminRooms />} />
-              <Route path="facilities" element={<AdminFacilities />} />
-              <Route path="seats" element={<AdminSeats />} />
-              <Route path="day-passes" element={<AdminDayPasses />} />
-              <Route path="meeting-rooms" element={<AdminMeetingRooms />} />
-              <Route path="conference-rooms" element={<AdminConferenceRooms />} />
-              <Route path="time-slots" element={<AdminTimeSlots />} />
-              <Route path="settings" element={<AdminSettings />} />
-            </Route>
-            
-            {/* Catch-all redirect */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+              {/* Admin Routes */}
+              <Route path="/admin" element={
+                <ProtectedRoute adminOnly={true}>
+                  <AdminLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<AdminDashboard />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="bookings" element={<AdminBookings />} />
+                <Route path="wallets" element={<AdminWallets />} />
+                <Route path="locations" element={<AdminLocations />} />
+                <Route path="branches" element={<AdminBranches />} />
+                <Route path="rooms" element={<AdminRooms />} />
+                <Route path="facilities" element={<AdminFacilities />} />
+                <Route path="seats" element={<AdminSeats />} />
+                <Route path="day-passes" element={<AdminDayPasses />} />
+                <Route path="meeting-rooms" element={<AdminMeetingRooms />} />
+                <Route path="conference-rooms" element={<AdminConferenceRooms />} />
+                <Route path="time-slots" element={<AdminTimeSlots />} />
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
+              
+              {/* Catch-all redirect */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <LocationSelectionModal />
+          </Router>
+        </LocationProvider>
       </AuthProvider>
     </MsalProvider>
   );

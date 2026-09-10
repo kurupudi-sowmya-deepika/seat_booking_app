@@ -156,20 +156,30 @@ async def seed_db():
         await db.commit()
         print(f"✅ Loaded {len(branches)} Branches")
 
+        DEFAULT_DAY_PASS_AMENITIES = [
+            "Wi-Fi", "Parking", "Cafeteria", "Power Outlet", "Lounge Access", "Printing", "Coffee/Tea"
+        ]
+        meeting_room_names = ["Luna", "Nova", "Mars", "Titan", "Apollo"]
+        conference_room_names = ["Orion", "Voyager", "Galaxy", "Horizon", "Comet"]
+
         # 6. Rooms, Day Passes, Seats per Branch
-        for br in branches:
+        for br_idx, br in enumerate(branches):
             # Day Pass
             dp_res = await db.execute(select(DayPass).where(DayPass.branch_id == br.id))
-            if not dp_res.scalar_one_or_none():
+            dp = dp_res.scalar_one_or_none()
+            if not dp:
                 dp = DayPass(
                     branch_id=br.id,
                     name=f"{br.name} Hot Desk Day Pass",
                     description="Full day access to hot desks, high-speed Wi-Fi, coffee bar, and common facilities.",
                     price=450.00 if "Koramangala" in br.name or "Hitech" in br.name else 400.00,
                     daily_capacity=25,
+                    amenities=DEFAULT_DAY_PASS_AMENITIES,
                     status="ACTIVE"
                 )
                 db.add(dp)
+            elif not dp.amenities:
+                dp.amenities = DEFAULT_DAY_PASS_AMENITIES
 
             # Workspace Room A (Quiet Zone)
             rm_a_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Room A - Focus Zone"))
@@ -229,44 +239,59 @@ async def seed_db():
                     )
                     db.add(seat)
 
-            # Meeting Room (Hourly)
-            mr_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Executive Meeting Suite"))
-            if not mr_res.scalar_one_or_none():
-                mr = Room(
-                    branch_id=br.id,
-                    name="Executive Meeting Suite",
-                    description="Soundproof meeting room equipped for client presentations and video calls",
-                    room_type="MEETING_ROOM",
-                    capacity=6,
-                    price_per_hour=400.00,
-                    status="ACTIVE"
-                )
-                mr.facilities = [
-                    facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"],
-                    facilities_map["Video Conferencing"], facilities_map["Whiteboard"],
-                    facilities_map["Artisan Coffee & Tea"]
-                ]
-                db.add(mr)
+            # Meeting Rooms (planet-themed, configurable names)
+            meeting_facilities = [
+                facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"],
+                facilities_map["Video Conferencing"], facilities_map["Whiteboard"],
+                facilities_map["Artisan Coffee & Tea"]
+            ]
+            for i, name in enumerate(meeting_room_names[:3]):
+                mr_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == name))
+                if not mr_res.scalar_one_or_none():
+                    mr = Room(
+                        branch_id=br.id,
+                        name=name,
+                        description=f"{name} meeting room — video conferencing and whiteboard ready",
+                        room_type="MEETING_ROOM",
+                        capacity=6 + i * 2,
+                        floor=2 + (i % 3),
+                        price_per_hour=400.00 + i * 50,
+                        status="ACTIVE"
+                    )
+                    mr.facilities = meeting_facilities
+                    db.add(mr)
 
-            # Conference Room (Hourly)
-            cr_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Grand Boardroom"))
-            if not cr_res.scalar_one_or_none():
-                cr = Room(
-                    branch_id=br.id,
-                    name="Grand Boardroom",
-                    description="Large enterprise conference boardroom with dual 4K laser projection and telepresence",
-                    room_type="CONFERENCE_ROOM",
-                    capacity=18,
-                    price_per_hour=1200.00,
-                    status="ACTIVE"
-                )
-                cr.facilities = [
-                    facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"],
-                    facilities_map["4K Projector"], facilities_map["Video Conferencing"],
-                    facilities_map["Whiteboard"], facilities_map["Artisan Coffee & Tea"],
-                    facilities_map["Dual 4K Monitors"]
-                ]
-                db.add(cr)
+            legacy_mr = (await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Executive Meeting Suite"))).scalar_one_or_none()
+            if legacy_mr:
+                legacy_mr.name = "Luna"
+                legacy_mr.floor = 2
+
+            conference_facilities = [
+                facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"],
+                facilities_map["4K Projector"], facilities_map["Video Conferencing"],
+                facilities_map["Whiteboard"], facilities_map["Artisan Coffee & Tea"],
+                facilities_map["Dual 4K Monitors"]
+            ]
+            for i, name in enumerate(conference_room_names[:2]):
+                cr_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == name))
+                if not cr_res.scalar_one_or_none():
+                    cr = Room(
+                        branch_id=br.id,
+                        name=name,
+                        description=f"{name} conference room — presentation and telepresence ready",
+                        room_type="CONFERENCE_ROOM",
+                        capacity=12 + i * 6,
+                        floor=3,
+                        price_per_hour=900.00 + i * 300,
+                        status="ACTIVE"
+                    )
+                    cr.facilities = conference_facilities
+                    db.add(cr)
+
+            legacy_cr = (await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Grand Boardroom"))).scalar_one_or_none()
+            if legacy_cr:
+                legacy_cr.name = "Orion"
+                legacy_cr.floor = 3
 
         # 7. Time Slots
         time_slot_definitions = [

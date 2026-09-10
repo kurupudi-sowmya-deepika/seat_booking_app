@@ -8,9 +8,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AutoLocationDetector from '../components/AutoLocationDetector';
+import { useLocation } from '../context/LocationContext';
 
 export const Booking: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedLocation, selectedOffice } = useLocation();
   const [locations, setLocations] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
@@ -56,6 +58,11 @@ export const Booking: React.FC = () => {
     api.get('/bookings/my').then(res => setBookings(res.data || [])).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (selectedLocation) setSelectedLoc(selectedLocation);
+    if (selectedOffice) setSelectedBranch(selectedOffice);
+  }, [selectedLocation, selectedOffice]);
+
   const handleLocationAutoDetected = (locId: string, branchId?: string) => {
     setSelectedLoc(locId);
     if (branchId) {
@@ -65,10 +72,9 @@ export const Booking: React.FC = () => {
 
   useEffect(() => {
     if (selectedLoc) {
-      api.get('/branches/').then(res => {
+      api.get('/branches/', { params: { location_id: selectedLoc } }).then(res => {
         setBranches(res.data.filter((b: any) => b.location_id === selectedLoc));
       }).catch(() => {});
-      setSelectedBranch('');
       setSelectedRoom('');
       setSeats([]);
       setSelectedSeat(null);
@@ -317,7 +323,7 @@ export const Booking: React.FC = () => {
                         className={`py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
                           isSelected
                             ? 'bg-[#007bc0] text-white border-[#005a8c] shadow-sm scale-105'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-[#007bc0]/40 hover:bg-blue-50/50'
+                            : 'bg-white text-[#007bc0] border-blue-200 hover:border-[#007bc0] hover:bg-blue-50'
                         }`}
                       >
                         {timeStr}
@@ -415,7 +421,7 @@ export const Booking: React.FC = () => {
               )}
             </div>
             
-            {!selectedRoom || !date || !selectedTime ? (
+            {!selectedRoom || !date || selectedSlots.length === 0 ? (
               <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50 text-gray-400 p-8 text-center">
                 <MapPin size={48} className="mb-3 opacity-20 text-[#007bc0]" />
                 <h4 className="font-semibold text-gray-700 text-sm">Interactive Seat Plan</h4>

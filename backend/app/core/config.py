@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    DEMO_WALLET_MODE: bool = True
+    DEMO_INITIAL_CREDIT_EMAIL: str = "sdkurupudi@intuceo.com"
+    DEMO_INITIAL_CREDIT_AMOUNT: float = 10000.0
     
     # AI Chatbot
     GEMINI_API_KEY: str = ""

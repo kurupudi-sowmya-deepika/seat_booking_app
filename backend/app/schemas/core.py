@@ -31,6 +31,7 @@ class RoomBase(BaseModel):
     description: Optional[str] = None
     room_type: Optional[str] = "WORKSPACE" # WORKSPACE, MEETING_ROOM, CONFERENCE_ROOM
     capacity: int
+    floor: Optional[int] = None
     price_per_hour: Optional[float] = None
     status: Optional[str] = "ACTIVE"
 
@@ -40,6 +41,7 @@ class DayPassBase(BaseModel):
     description: Optional[str] = None
     price: float
     daily_capacity: int
+    amenities: Optional[List[str]] = None
     status: Optional[str] = "ACTIVE"
 
 class FacilityBase(BaseModel):

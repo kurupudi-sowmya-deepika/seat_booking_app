@@ -3,18 +3,30 @@ import api from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Tag, MapPin, Building2, Calendar as CalIcon, Loader2, 
-  CheckCircle2, ArrowRight, ShieldCheck, Coffee, Wifi, 
-  ChevronRight, AlertCircle, X, Wallet
+  CheckCircle2, ArrowRight, ShieldCheck, ChevronRight,
+  AlertCircle, X, Wallet, Users, Search, 
+  UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AutoLocationDetector from '../components/AutoLocationDetector';
+import { useAuth } from '../context/AuthContext';
+import { useLocation } from '../context/LocationContext';
+import AmenityBadge from '../components/AmenityBadge';
+import PriceSummary from '../components/PriceSummary';
+
+interface AdditionalUser {
+  name: string;
+  email: string;
+}
 
 export const DayPass: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { selectedLocation, selectedOffice, fetchLocations } = useLocation();
   const [locations, setLocations] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
-  const [selectedLoc, setSelectedLoc] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedLoc, setSelectedLoc] = useState(selectedLocation || '');
+  const [selectedBranch, setSelectedBranch] = useState(selectedOffice || '');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [passes, setPasses] = useState<any[]>([]);
@@ -25,11 +37,24 @@ export const DayPass: React.FC = () => {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [error, setError] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // New state for quantity and additional users
+  const [quantity, setQuantity] = useState(1);
+  const [additionalUsers, setAdditionalUsers] = useState<AdditionalUser[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
 
   useEffect(() => {
+    fetchLocations();
     api.get('/locations/').then(res => setLocations(res.data)).catch(() => {});
     api.get('/wallet/').then(res => setWallet(res.data)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (selectedLocation) setSelectedLoc(selectedLocation);
+    if (selectedOffice) setSelectedBranch(selectedOffice);
+  }, [selectedLocation, selectedOffice]);
 
   const handleLocationAutoDetected = (locId: string, branchId?: string) => {
     setSelectedLoc(locId);
@@ -40,10 +65,9 @@ export const DayPass: React.FC = () => {
 
   useEffect(() => {
     if (selectedLoc) {
-      api.get('/branches/').then(res => {
+      api.get('/branches/', { params: { location_id: selectedLoc } }).then(res => {
         setBranches(res.data.filter((b: any) => b.location_id === selectedLoc));
       }).catch(() => {});
-      setSelectedBranch('');
       setPasses([]);
       setSelectedPass(null);
     }
@@ -70,8 +94,55 @@ export const DayPass: React.FC = () => {
     fetchPassAvailability();
   }, [selectedBranch, date]);
 
+  // Search users for autocomplete
+  useEffect(() => {
+    const searchUsers = async () => {
+      if (userSearchQuery.length >= 2) {
+        setUserSearchLoading(true);
+        try {
+          const res = await api.get('/users/search', { params: { search: userSearchQuery } });
+          setUserSearchResults(res.data);
+        } catch (err) {
+          console.error('Failed to search users', err);
+        } finally {
+          setUserSearchLoading(false);
+        }
+      } else {
+        setUserSearchResults([]);
+      }
+    };
+    
+    const debounceTimer = setTimeout(searchUsers, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [userSearchQuery]);
+
+  const handleAddUser = (user: any) => {
+    if (additionalUsers.length >= quantity - 1) {
+      setError(`Maximum ${quantity - 1} additional users allowed`);
+      return;
+    }
+    
+    if (additionalUsers.some(u => u.email === user.email)) {
+      setError('User already added');
+      return;
+    }
+    
+    setAdditionalUsers([...additionalUsers, { name: user.name, email: user.email }]);
+    setUserSearchQuery('');
+    setUserSearchResults([]);
+  };
+
+  const handleRemoveUser = (email: string) => {
+    setAdditionalUsers(additionalUsers.filter(u => u.email !== email));
+  };
+
   const handleBookDayPass = async () => {
-    if (!selectedPass) return;
+    if (!selectedPass || !selectedLoc || !selectedBranch) return;
+    if (quantity > 1 && additionalUsers.length !== quantity - 1) {
+      setError(`Add ${quantity - 1} additional user${quantity > 2 ? 's' : ''} before confirming.`);
+      setShowConfirmModal(false);
+      return;
+    }
     setBookingLoading(true);
     setError('');
 
@@ -81,7 +152,9 @@ export const DayPass: React.FC = () => {
         location_id: selectedLoc,
         branch_id: selectedBranch,
         day_pass_id: selectedPass.day_pass_id,
-        booking_date: date
+        booking_date: date,
+        number_of_people: quantity,
+        additional_users: additionalUsers
       });
       if (res.data.id) {
         setShowConfirmModal(false);
@@ -100,7 +173,8 @@ export const DayPass: React.FC = () => {
 
   const walletBalance = wallet?.balance ?? 0;
   const passPrice = selectedPass ? selectedPass.price : 0;
-  const remainingBalance = walletBalance - passPrice;
+  const totalPrice = passPrice * quantity;
+  const remainingBalance = walletBalance - totalPrice;
   const hasSufficientCredits = remainingBalance >= 0;
 
   return (
@@ -166,17 +240,154 @@ export const DayPass: React.FC = () => {
             </div>
           </div>
 
+          {/* Quantity Selection */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-base font-bold text-gray-800 mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">2</span> 
+              Number of People
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5"><Users size={14}/> Select Quantity</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((qty) => (
+                    <button
+                      key={qty}
+                      onClick={() => {
+                        setQuantity(qty);
+                        setAdditionalUsers([]);
+                      }}
+                      className={`py-3 rounded-xl text-sm font-bold border transition ${
+                        quantity === qty 
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' 
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {qty}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-gray-600">Price per person</span>
+                  <span className="text-sm font-bold text-gray-800">₹{selectedPass ? selectedPass.price : '0'}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-gray-600">Number of people</span>
+                  <span className="text-sm font-bold text-gray-800">{quantity}</span>
+                </div>
+                <div className="pt-2 border-t border-emerald-200 flex justify-between items-center">
+                  <span className="text-xs font-bold text-gray-700">Total Price</span>
+                  <span className="text-lg font-black text-emerald-700">₹{totalPrice.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Users Section */}
+          {quantity > 1 && (
+            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+              <h2 className="text-base font-bold text-gray-800 mb-5 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">3</span> 
+                Add Additional Users
+              </h2>
+
+              <div className="space-y-4">
+                {/* Search and Add Users */}
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search employees by name or email..."
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition"
+                  />
+                  
+                  {/* Search Results Dropdown */}
+                  {userSearchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10 max-h-48 overflow-y-auto">
+                      {userSearchResults.map((user) => (
+                        <button
+                          key={user.id}
+                          onClick={() => handleAddUser(user)}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 transition flex items-center gap-3 border-b border-gray-100 last:border-0"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                            {user.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-gray-800">{user.name}</p>
+                            <p className="text-[10px] text-gray-500">{user.email}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Selected Users */}
+                <div className="space-y-2">
+                  {/* Primary Booker */}
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-blue-200 text-blue-700 flex items-center justify-center text-xs font-bold">
+                      {user?.name?.charAt(0) || 'U'}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-gray-800">{user?.name || 'You'}</p>
+                      <p className="text-[10px] text-gray-500">{user?.email || 'Primary booker'}</p>
+                    </div>
+                    <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Primary</span>
+                  </div>
+
+                  {/* Additional Users */}
+                  {additionalUsers.map((user, index) => (
+                    <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                        {user.name.charAt(0)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-gray-800">{user.name}</p>
+                        <p className="text-[10px] text-gray-500">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveUser(user.email)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition"
+                        title="Remove user"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Add More Button */}
+                  {additionalUsers.length < quantity - 1 && (
+                    <button
+                      onClick={() => setUserSearchQuery('')}
+                      className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-xs font-bold text-gray-500 hover:border-emerald-500 hover:text-emerald-600 transition flex items-center justify-center gap-2"
+                    >
+                      <UserPlus size={14} />
+                      Add {quantity - 1 - additionalUsers.length} more user{quantity - 1 - additionalUsers.length > 1 ? 's' : ''}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Perks card */}
           <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 rounded-2xl p-6 shadow-sm">
             <h3 className="text-sm font-bold text-emerald-900 mb-3 flex items-center gap-2">
-              <ShieldCheck size={18} className="text-emerald-600" /> Day Pass Privileges
+              <ShieldCheck size={18} className="text-emerald-600" /> Day Pass Amenities
             </h3>
-            <ul className="space-y-2.5 text-xs text-emerald-800">
-              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-emerald-600" /> Full 9 AM - 7 PM hot desk access</li>
-              <li className="flex items-center gap-2"><Wifi size={14} className="text-emerald-600" /> High-speed enterprise Wi-Fi (1 Gbps)</li>
-              <li className="flex items-center gap-2"><Coffee size={14} className="text-emerald-600" /> Unlimited premium coffee, tea, and pantry access</li>
-              <li className="flex items-center gap-2"><CheckCircle2 size={14} className="text-emerald-600" /> Free phone booth & quiet zone access</li>
-            </ul>
+            <div className="flex flex-wrap gap-2">
+              {(selectedPass?.amenities?.length ? selectedPass.amenities : ['Wi-Fi', 'Parking', 'Cafeteria', 'Power Outlet', 'Lounge Access', 'Printing', 'Coffee/Tea']).map((amenity: string) => (
+                <AmenityBadge key={amenity} name={amenity} />
+              ))}
+            </div>
           </div>
         </div>
 
@@ -262,10 +473,16 @@ export const DayPass: React.FC = () => {
               <div className="mt-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
                 <div>
                   <h4 className="font-bold text-gray-800 text-sm">Selected: {selectedPass.name}</h4>
-                  <p className="text-xs text-gray-500">Price: ₹{selectedPass.price} &bull; Date: {date} &bull; Remaining: {selectedPass.available_capacity} passes</p>
+                  <p className="text-xs text-gray-500">Price: ₹{selectedPass.price}/person &bull; {quantity} people &bull; Date: {date} &bull; Remaining: {selectedPass.available_capacity} passes</p>
                 </div>
                 <button
-                  onClick={() => setShowConfirmModal(true)}
+                  onClick={() => {
+                    if (quantity > 1 && additionalUsers.length !== quantity - 1) {
+                      setError(`Add ${quantity - 1} additional user${quantity > 2 ? 's' : ''} before booking.`);
+                      return;
+                    }
+                    setShowConfirmModal(true);
+                  }}
                   className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
                 >
                   <span>Review & Book Pass</span>
@@ -297,27 +514,18 @@ export const DayPass: React.FC = () => {
               <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
                 <Tag size={18} className="text-emerald-600" /> Confirm Day Pass Booking
               </h3>
-              <p className="text-xs text-gray-500 mb-5">Deduct prepaid credits to secure your hot desk pass.</p>
+              <p className="text-xs text-gray-500 mb-5">Deduct prepaid credits to secure your hot desk pass for {quantity} person{quantity > 1 ? 's' : ''}.</p>
 
-              {/* Breakdown */}
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-2.5 text-xs mb-5">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Location:</span>
-                  <span className="font-bold text-gray-800">{selectedLocObj?.name} &bull; {selectedBranchObj?.name}</span>
+              <PriceSummary pricePerPerson={selectedPass.price} numberOfPeople={quantity} total={totalPrice} />
+
+              {(selectedPass.amenities || []).length > 0 && (
+                <div className="mb-5">
+                  <p className="text-xs font-bold text-gray-600 mb-2">Amenities included</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedPass.amenities.map((amenity: string) => <AmenityBadge key={amenity} name={amenity} />)}
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Pass Type:</span>
-                  <span className="font-bold text-gray-800">{selectedPass.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Date:</span>
-                  <span className="font-bold text-gray-800">{date} (Full Day)</span>
-                </div>
-                <div className="pt-2 border-t border-gray-200 flex justify-between font-bold text-sm text-gray-800">
-                  <span>Day Pass Price:</span>
-                  <span className="text-emerald-700">₹{passPrice.toFixed(2)}</span>
-                </div>
-              </div>
+              )}
 
               {/* Wallet deduction */}
               <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-xl p-4 space-y-2 text-xs mb-6">
@@ -327,7 +535,7 @@ export const DayPass: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Credits Deducted:</span>
-                  <span className="font-semibold text-red-600">-₹{passPrice.toFixed(2)}</span>
+                  <span className="font-semibold text-red-600">-₹{totalPrice.toFixed(2)}</span>
                 </div>
                 <div className="pt-2 border-t border-emerald-200/80 flex justify-between font-extrabold text-xs">
                   <span className="text-gray-700">Balance After Booking:</span>

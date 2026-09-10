@@ -57,7 +57,9 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex-center min-h-screen" style={{ backgroundColor: 'var(--bg-color)' }}>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--bg-color)' }}>
+      <div className="bosch-supergraphic shrink-0" aria-hidden="true" />
+      <div className="flex-center flex-1">
       <div className="login-container animate-fade-in">
 
         {/* Left Side (Branding) */}
@@ -67,10 +69,10 @@ const Login: React.FC = () => {
 
           <div style={{ position: 'relative', zIndex: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
-              <img src="/bosch-logo.png" alt="Bosch Logo" style={{ height: '2.5rem', objectFit: 'contain' }} />
+              <img src="/bosch-logo.png" alt="Bosch" style={{ height: '2.5rem', width: 'auto', objectFit: 'contain' }} />
             </div>
 
-            <h1 style={{ fontSize: '2.25rem', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '1.5rem' }}>Seat Booking Management</h1>
+            <h1 style={{ fontSize: '2.25rem', color: 'var(--text-primary)', fontWeight: '600', marginBottom: '1.5rem' }}>Seat Booking App</h1>
 
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '3rem' }}>
               © 2026 Bosch. All rights reserved.
@@ -143,7 +145,7 @@ const Login: React.FC = () => {
           </p>
         </div>
 
-      </div>
+      </div></div>
     </div>
   );
 };

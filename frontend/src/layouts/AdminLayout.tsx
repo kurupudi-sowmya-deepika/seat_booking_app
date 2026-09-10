@@ -70,7 +70,7 @@ export const AdminLayout: React.FC = () => {
               <div className="w-8 h-8 rounded-lg bg-[#007bc0] text-white flex items-center justify-center font-black text-sm">
                 SS
               </div>
-              <span className="font-extrabold text-sm tracking-wide text-white">SeatSync Admin</span>
+              <span className="font-extrabold text-sm tracking-wide text-white">Seat Booking Admin</span>
             </div>
           ) : (
             <div className="w-8 h-8 rounded-lg bg-[#007bc0] text-white flex items-center justify-center font-black text-sm mx-auto">

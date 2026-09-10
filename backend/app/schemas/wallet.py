@@ -8,7 +8,9 @@ class TopupRequest(BaseModel):
     amount: float
 
 class TopupResponse(BaseModel):
-    checkout_url: str
+    checkout_url: Optional[str] = None
+    balance: Optional[float] = None
+    demo_credit: bool = False
 
 class TransactionResponse(BaseModel):
     id: UUID
@@ -19,6 +21,7 @@ class TransactionResponse(BaseModel):
     reference_type: Optional[str] = None
     reference_id: Optional[str] = None
     description: Optional[str] = None
+    status: Optional[str] = "SUCCESS"
     created_at: datetime
     
     class Config:
@@ -53,4 +56,3 @@ class AdminWalletDetail(BaseModel):
     
     class Config:
         from_attributes = True
-

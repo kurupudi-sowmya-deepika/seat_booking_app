@@ -1,4 +1,4 @@
-from sqlalchemy import String, Float, ForeignKey, Integer, Numeric, Time, Boolean
+from sqlalchemy import String, Float, ForeignKey, Integer, Numeric, Time, Boolean, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 from typing import List
@@ -45,6 +45,7 @@ class DayPass(BaseModel):
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     price: Mapped[float] = mapped_column(Numeric(10, 2))
     daily_capacity: Mapped[int] = mapped_column(Integer)
+    amenities: Mapped[list | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String, default="ACTIVE")
 
     branch = relationship("Branch", back_populates="day_passes")
@@ -58,6 +59,7 @@ class Room(BaseModel):
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     room_type: Mapped[str] = mapped_column(String, default="WORKSPACE") # WORKSPACE, MEETING_ROOM, CONFERENCE_ROOM
     capacity: Mapped[int] = mapped_column(Integer)
+    floor: Mapped[int | None] = mapped_column(Integer, nullable=True)
     price_per_hour: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     status: Mapped[str] = mapped_column(String, default="ACTIVE")
 

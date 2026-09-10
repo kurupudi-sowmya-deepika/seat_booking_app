@@ -214,7 +214,7 @@ export const AdminTimeSlots: React.FC = () => {
                 </label>
                 <input
                   type="time"
-                  step="1"
+                  step="900"
                   value={formData.start_time.slice(0, 5)}
                   onChange={(e) => setFormData({ ...formData, start_time: `${e.target.value}:00` })}
                   required
@@ -228,7 +228,7 @@ export const AdminTimeSlots: React.FC = () => {
                 </label>
                 <input
                   type="time"
-                  step="1"
+                  step="900"
                   value={formData.end_time.slice(0, 5)}
                   onChange={(e) => setFormData({ ...formData, end_time: `${e.target.value}:00` })}
                   required

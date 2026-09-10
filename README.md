@@ -1,4 +1,4 @@
-# SeatSync - Workspace Booking Application
+# Seat Booking App - Workspace Booking Application
 
 A complete, production-ready workspace and seat booking application. 
 Built with **React (TypeScript)**, **FastAPI**, and **PostgreSQL**.

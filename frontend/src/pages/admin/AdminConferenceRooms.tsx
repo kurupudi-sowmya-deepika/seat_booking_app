@@ -16,6 +16,7 @@ export const AdminConferenceRooms: React.FC = () => {
     description: '',
     room_type: 'CONFERENCE_ROOM',
     capacity: 20,
+    floor: null as number | null,
     price_per_hour: 1200,
     facility_ids: [] as string[],
     status: 'ACTIVE'
@@ -53,6 +54,7 @@ export const AdminConferenceRooms: React.FC = () => {
       description: 'Executive conference hall with stage, laser projector, multi-mic audio, and livestreaming setup.',
       room_type: 'CONFERENCE_ROOM',
       capacity: 25,
+      floor: null,
       price_per_hour: 1500,
       facility_ids: [],
       status: 'ACTIVE'
@@ -69,6 +71,7 @@ export const AdminConferenceRooms: React.FC = () => {
       description: rm.description || '',
       room_type: 'CONFERENCE_ROOM',
       capacity: rm.capacity || 20,
+      floor: rm.floor ?? null,
       price_per_hour: rm.price_per_hour || 1200,
       facility_ids: (rm.facilities || []).map((f: any) => f.id),
       status: rm.status
@@ -162,71 +165,87 @@ export const AdminConferenceRooms: React.FC = () => {
       ) : rooms.length === 0 ? (
         <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">No conference rooms found.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {rooms.map((rm) => (
-            <div key={rm.id} className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between">
-              <div className="space-y-3">
+            <div
+              key={rm.id}
+              className="aspect-square bg-white rounded-2xl border border-gray-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col overflow-hidden"
+            >
+              {/* Coloured header strip */}
+              <div className="relative bg-gradient-to-br from-indigo-600 to-purple-700 p-3 flex-shrink-0">
                 <div className="flex items-start justify-between">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                    rm.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {rm.status}
-                  </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                    <Presentation size={16} className="text-white" />
+                  </div>
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => openEdit(rm)}
-                      className="p-1.5 text-gray-400 hover:text-[#007bc0] hover:bg-blue-50 rounded-lg transition"
+                      className="p-1 text-white/70 hover:text-white hover:bg-white/20 rounded-md transition"
                       title="Edit"
                     >
-                      <Edit2 size={16} />
+                      <Edit2 size={13} />
                     </button>
                     <button
                       onClick={() => handleDelete(rm.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                      className="p-1 text-white/70 hover:text-red-300 hover:bg-white/20 rounded-md transition"
                       title="Delete"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
-
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">{rm.name}</h3>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 font-medium mt-1">
-                    <Building2 size={14} className="text-[#007bc0]" />
-                    <span>{getBranchName(rm.branch_id)}</span>
-                  </div>
-                </div>
-
-                <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
-                  {rm.description || 'Spacious boardroom with podium, dual screens, and premium executive seating.'}
-                </p>
-
-                {rm.facilities && rm.facilities.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {rm.facilities.map((f: any) => (
-                      <span key={f.id} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-bold rounded-md flex items-center gap-1">
-                        <Sparkles size={10} />
-                        {f.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <span className={`mt-2 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                  rm.status === 'ACTIVE' ? 'bg-emerald-400/20 text-emerald-200' : 'bg-red-400/20 text-red-200'
+                }`}>
+                  {rm.status}
+                </span>
               </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-gray-400 block">Auditorium Capacity</span>
-                  <span className="text-sm font-black text-gray-900 flex items-center gap-1">
-                    <Users size={14} className="text-gray-400" />
-                    {rm.capacity} Seats
-                  </span>
+              {/* Body */}
+              <div className="flex-1 p-3 flex flex-col justify-between min-h-0">
+                <div className="space-y-1.5">
+                  <h3 className="text-sm font-black text-gray-900 leading-tight line-clamp-1">{rm.name}</h3>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-medium">
+                      <Building2 size={11} className="text-indigo-500" />
+                      <span className="line-clamp-1">{getBranchName(rm.branch_id)}</span>
+                    </div>
+                    {rm.floor != null && (
+                      <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-bold rounded">
+                        Fl.{rm.floor}
+                      </span>
+                    )}
+                  </div>
+
+                  {rm.facilities && rm.facilities.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {rm.facilities.slice(0, 3).map((f: any) => (
+                        <span key={f.id} className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 text-[9px] font-bold rounded">
+                          {f.name}
+                        </span>
+                      ))}
+                      {rm.facilities.length > 3 && (
+                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-[9px] font-bold rounded">
+                          +{rm.facilities.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] uppercase font-bold text-gray-400 block">Rate / Hour</span>
-                  <span className="text-xl font-black text-[#007bc0]">
-                    ₹{rm.price_per_hour || 0}/hr
-                  </span>
+
+                {/* Stats pinned to bottom */}
+                <div className="pt-2 border-t border-gray-100 flex items-end justify-between mt-2">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Capacity</span>
+                    <span className="text-xs font-black text-gray-800 flex items-center gap-0.5">
+                      <Users size={11} className="text-gray-400" />
+                      {rm.capacity}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[9px] uppercase font-bold text-gray-400 block">Rate</span>
+                    <span className="text-sm font-black text-indigo-600">₹{rm.price_per_hour || 0}/hr</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -292,10 +311,10 @@ export const AdminConferenceRooms: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                    Seating Capacity
+                    Capacity
                   </label>
                   <input
                     type="number"
@@ -309,7 +328,21 @@ export const AdminConferenceRooms: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                    Rate (₹ / Hour)
+                    Floor No.
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 3"
+                    value={formData.floor ?? ''}
+                    onChange={(e) => setFormData({ ...formData, floor: e.target.value === '' ? null : Number(e.target.value) })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Rate (₹/hr)
                   </label>
                   <input
                     type="number"

@@ -1,6 +1,6 @@
 import enum
 from datetime import date, time
-from sqlalchemy import String, ForeignKey, Date, Time, Numeric, Enum, UniqueConstraint, Index
+from sqlalchemy import String, ForeignKey, Date, Time, Numeric, Enum, UniqueConstraint, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
@@ -51,6 +51,10 @@ class Booking(BaseModel):
     status: Mapped[BookingStatus] = mapped_column(Enum(BookingStatus), default=BookingStatus.PENDING)
     amount: Mapped[float] = mapped_column(Numeric(10, 2))
     stripe_session_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    
+    # Additional fields for multi-user bookings
+    number_of_people: Mapped[int] = mapped_column(default=1)
+    additional_users: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # Store additional user info
 
     user = relationship("User", back_populates="bookings")
     seat = relationship("Seat", back_populates="bookings")
@@ -69,6 +73,13 @@ class Booking(BaseModel):
             unique=True,
             postgresql_where=status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
         ),
+        Index("ix_bookings_user_id", "user_id"),
+        Index("ix_bookings_location_id", "location_id"),
+        Index("ix_bookings_branch_id", "branch_id"),
+        Index("ix_bookings_room_id", "room_id"),
+        Index("ix_bookings_booking_date", "booking_date"),
+        Index("ix_bookings_start_time", "start_time"),
+        Index("ix_bookings_end_time", "end_time"),
     )
 
 class Payment(BaseModel):

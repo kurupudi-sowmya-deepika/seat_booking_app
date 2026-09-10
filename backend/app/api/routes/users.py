@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from typing import List, Optional
 from uuid import UUID
 
@@ -31,6 +31,28 @@ async def get_users(
         query = query.where(User.status == status)
         
     result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
+
+@router.get("/search", response_model=List[UserResponse])
+async def search_users(
+    search: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Search users by name or email for autocomplete functionality"""
+    if not search or len(search) < 2:
+        return []
+
+    query = select(User).where(
+        or_(
+            User.name.ilike(f"%{search}%"),
+            User.email.ilike(f"%{search}%")
+        ),
+        User.status == UserStatus.ACTIVE,
+        User.id != current_user.id
+    ).limit(10)
+
+    result = await db.execute(query)
     return result.scalars().all()
 
 @router.get("/{id}", response_model=UserResponse)

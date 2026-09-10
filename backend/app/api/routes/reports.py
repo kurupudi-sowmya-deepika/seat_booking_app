@@ -208,5 +208,5 @@ async def export_bookings_csv(
     return Response(
         content=csv_data,
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="seatsync_revenue_report_{date.today()}.csv"'}
+        headers={"Content-Disposition": f'attachment; filename="seat_booking_revenue_report_{date.today()}.csv"'}
     )

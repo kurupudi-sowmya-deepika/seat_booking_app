@@ -1,7 +1,7 @@
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import select, and_, func, or_, String, cast
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal
 from typing import List, Optional
@@ -16,8 +16,8 @@ from app.models.wallet import Wallet, CreditTransaction, TransactionType
 from app.models.notification import Notification, NotificationType
 from app.schemas.booking import (
     BookingCreate, BookingResponse, BookingDetailResponse, BookingModifyRequest,
-    BookingExtendRequest, SeatAvailability, DayPassAvailability, RoomAvailability,
-    AlternativeResourceResponse, AlternativeResourceOption
+    BookingExtendRequest, SeatAvailability, DayPassAvailability, RoomAvailability, RoomTimelineSlot,
+    RoomTimelineResponse, AlternativeResourceResponse, AlternativeResourceOption
 )
 from app.api.deps import get_current_user, get_current_admin
 from app.core.config import settings
@@ -62,7 +62,10 @@ def map_booking_to_detail(b: Booking) -> BookingDetailResponse:
         seat_type=b.seat.seat_type if b.seat else None,
         day_pass_name=b.day_pass.name if b.day_pass else None,
         time_slot_label=time_label,
-        facilities=facilities
+        facilities=facilities,
+        amenities=(b.day_pass.amenities if b.day_pass and b.day_pass.amenities else []),
+        number_of_people=b.number_of_people or 1,
+        additional_users=b.additional_users
     )
 
 async def create_system_notification(
@@ -127,30 +130,18 @@ async def get_seat_availability(
         ))
     return res
 
-@router.get("/availability/day-pass", response_model=DayPassAvailability)
-async def get_day_pass_availability(
-    day_pass_id: UUID,
-    booking_date: date,
-    db: AsyncSession = Depends(get_db)
-):
-    dp_result = await db.execute(select(DayPass).where(DayPass.id == day_pass_id))
-    dp = dp_result.scalar_one_or_none()
-    if not dp:
-        raise HTTPException(status_code=404, detail="Day Pass not found")
-        
-    count_result = await db.execute(
-        select(func.count(Booking.id)).where(
+async def _day_pass_availability(dp: DayPass, booking_date: date, db: AsyncSession) -> DayPassAvailability:
+    booked_count = (await db.execute(
+        select(func.coalesce(func.sum(Booking.number_of_people), 0)).where(
             and_(
-                Booking.day_pass_id == day_pass_id,
+                Booking.day_pass_id == dp.id,
                 Booking.booking_date == booking_date,
                 Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
             )
         )
-    )
-    booked_count = count_result.scalar_one()
+    )).scalar_one()
+    booked_count = int(booked_count or 0)
     available = max(0, dp.daily_capacity - booked_count)
-    status_str = "SOLD_OUT" if available == 0 else "AVAILABLE"
-    
     return DayPassAvailability(
         day_pass_id=dp.id,
         name=dp.name,
@@ -158,8 +149,32 @@ async def get_day_pass_availability(
         total_capacity=dp.daily_capacity,
         booked_count=booked_count,
         available_capacity=available,
-        status=status_str
+        status="SOLD_OUT" if available == 0 else "AVAILABLE",
+        amenities=dp.amenities or [],
+        currency="INR"
     )
+
+
+@router.get("/availability/day-pass", response_model=List[DayPassAvailability])
+async def get_day_pass_availability(
+    booking_date: date,
+    branch_id: Optional[UUID] = None,
+    day_pass_id: Optional[UUID] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    if not branch_id and not day_pass_id:
+        raise HTTPException(status_code=400, detail="Provide branch_id or day_pass_id")
+
+    query = select(DayPass).where(DayPass.status == "ACTIVE")
+    if day_pass_id:
+        query = query.where(DayPass.id == day_pass_id)
+    if branch_id:
+        query = query.where(DayPass.branch_id == branch_id)
+
+    passes = (await db.execute(query)).scalars().all()
+    if day_pass_id and not passes:
+        raise HTTPException(status_code=404, detail="Day Pass not found")
+    return [await _day_pass_availability(dp, booking_date, db) for dp in passes]
 
 @router.get("/availability/room", response_model=List[RoomAvailability])
 async def get_room_availability(
@@ -208,9 +223,110 @@ async def get_room_availability(
             room_type=r.room_type,
             facilities=fac_names,
             seats_count=len(r.seats) if r.seats else r.capacity,
-            status=status_str
+            floor=r.floor,
+            available_capacity=0 if overlaps else r.capacity,
+            status=status_str,
+            currency="INR"
         ))
     return res
+
+@router.get("/availability/room/{room_id}/timeline", response_model=List[RoomTimelineSlot])
+async def get_room_timeline(
+    room_id: UUID,
+    booking_date: date,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return a room's bookable day as 15-minute availability intervals."""
+    room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    bookings = (await db.execute(
+        select(Booking).options(selectinload(Booking.user)).where(
+            Booking.room_id == room_id,
+            Booking.booking_date == booking_date,
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
+        )
+    )).scalars().all()
+
+    return _build_timeline_slots(bookings, current_user.id)
+
+
+def _build_timeline_slots(bookings: List[Booking], current_user_id) -> List[RoomTimelineSlot]:
+    slots = []
+    for minutes in range(8 * 60, 20 * 60, 15):
+        slot_start = time(minutes // 60, minutes % 60)
+        end_minutes = minutes + 15
+        slot_end = time(end_minutes // 60, end_minutes % 60)
+        matching_booking = next(
+            (
+                booking for booking in bookings
+                if booking.start_time and booking.end_time and booking.start_time < slot_end and booking.end_time > slot_start
+            ),
+            None
+        )
+        mine = bool(matching_booking and str(matching_booking.user_id) == str(current_user_id))
+        slots.append(RoomTimelineSlot(
+            start_time=slot_start,
+            end_time=slot_end,
+            status="BOOKED" if matching_booking else "AVAILABLE",
+            is_mine=mine,
+            booking_id=matching_booking.id if matching_booking else None,
+            booked_by=(matching_booking.user.name if matching_booking and matching_booking.user else None),
+            booking_type=matching_booking.booking_type.value if matching_booking and matching_booking.booking_type else None,
+            booking_start=matching_booking.start_time if matching_booking else None,
+            booking_end=matching_booking.end_time if matching_booking else None,
+        ))
+    return slots
+
+
+@router.get("/availability/rooms/timeline", response_model=List[RoomTimelineResponse])
+async def get_branch_rooms_timeline(
+    branch_id: UUID,
+    booking_date: date,
+    room_type: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    room_query = select(Room).options(selectinload(Room.facilities)).where(
+        Room.branch_id == branch_id,
+        Room.status == "ACTIVE",
+        Room.room_type.in_(["MEETING_ROOM", "CONFERENCE_ROOM"])
+    )
+    if room_type:
+        room_query = room_query.where(Room.room_type == room_type)
+    rooms = (await db.execute(room_query)).scalars().all()
+    if not rooms:
+        return []
+
+    room_ids = [r.id for r in rooms]
+    bookings = (await db.execute(
+        select(Booking).options(selectinload(Booking.user)).where(
+            Booking.room_id.in_(room_ids),
+            Booking.booking_date == booking_date,
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED])
+        )
+    )).scalars().all()
+    by_room: dict = {}
+    for booking in bookings:
+        by_room.setdefault(str(booking.room_id), []).append(booking)
+
+    result = []
+    for room in rooms:
+        room_bookings = by_room.get(str(room.id), [])
+        result.append(RoomTimelineResponse(
+            room_id=room.id,
+            name=room.name,
+            floor=room.floor,
+            capacity=room.capacity,
+            room_type=room.room_type,
+            price_per_hour=float(room.price_per_hour or 0),
+            facilities=[f.name for f in room.facilities] if room.facilities else [],
+            status="UNAVAILABLE" if room_bookings else "AVAILABLE",
+            slots=_build_timeline_slots(room_bookings, current_user.id)
+        ))
+    return result
 
 # ----------------- Alternative Resource Suggestions -----------------
 
@@ -362,13 +478,25 @@ async def create_booking(
         dp = (await db.execute(select(DayPass).where(DayPass.id == booking_in.day_pass_id))).scalar_one_or_none()
         if not dp: raise HTTPException(status_code=404, detail="Day Pass not found")
         
-        count = (await db.execute(select(func.count(Booking.id)).where(
+        # Calculate total people and check capacity
+        number_of_people = booking_in.number_of_people or 1
+        if number_of_people < 1 or number_of_people > 4:
+            raise HTTPException(status_code=400, detail="Number of people must be between 1 and 4")
+        extra = booking_in.additional_users or []
+        if number_of_people > 1 and len(extra) != number_of_people - 1:
+            raise HTTPException(status_code=400, detail="Please add all additional users before confirming")
+        existing_people = (await db.execute(select(func.coalesce(func.sum(Booking.number_of_people), 0)).where(
             and_(Booking.day_pass_id == dp.id, Booking.booking_date == booking_in.booking_date, Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]))
         ))).scalar_one()
-        if count >= dp.daily_capacity:
-            raise HTTPException(status_code=400, detail="Day Pass capacity reached for this date")
-        price = Decimal(str(dp.price))
-        desc = f"Day Pass - {dp.name}"
+        existing_people = int(existing_people or 0)
+        total_people_after_booking = existing_people + number_of_people
+        
+        if total_people_after_booking > dp.daily_capacity:
+            raise HTTPException(status_code=400, detail=f"Day Pass capacity reached. Available: {dp.daily_capacity - existing_people}, Requested: {number_of_people}")
+        
+        # Calculate total price based on number of people
+        price = Decimal(str(dp.price)) * Decimal(str(number_of_people))
+        desc = f"Day Pass - {dp.name} ({number_of_people} person{'s' if number_of_people > 1 else ''})"
         
     elif booking_in.booking_type in [BookingType.MEETING_ROOM, BookingType.CONFERENCE_ROOM]:
         if not booking_in.room_id or not booking_in.start_time or not booking_in.end_time:
@@ -420,7 +548,9 @@ async def create_booking(
             start_time=booking_in.start_time,
             end_time=booking_in.end_time,
             amount=price,
-            status=BookingStatus.CONFIRMED
+            status=BookingStatus.CONFIRMED,
+            number_of_people=booking_in.number_of_people or 1,
+            additional_users=booking_in.additional_users
         )
         db.add(booking)
         await db.flush()
@@ -685,31 +815,31 @@ async def get_booking_ical(
     start_dt = datetime.combine(booking.booking_date, st)
     end_dt = datetime.combine(booking.booking_date, et)
 
-    summary = f"SeatSync: {booking.booking_type}"
-    if booking.seat: summary = f"Desk {booking.seat.seat_number} - SeatSync"
-    elif booking.room: summary = f"{booking.room.name} - SeatSync"
+    summary = f"Seat Booking App: {booking.booking_type}"
+    if booking.seat: summary = f"Desk {booking.seat.seat_number} - Seat Booking App"
+    elif booking.room: summary = f"{booking.room.name} - Seat Booking App"
 
     location_str = f"{booking.branch.name if booking.branch else 'Workspace'}, {booking.location.city if booking.location else ''}"
 
     ics_content = (
         "BEGIN:VCALENDAR\r\n"
         "VERSION:2.0\r\n"
-        "PRODID:-//SeatSync//Workspace Booking//EN\r\n"
+        "PRODID:-//Seat Booking App//Workspace Booking//EN\r\n"
         "CALSCALE:GREGORIAN\r\n"
         "METHOD:REQUEST\r\n"
         "BEGIN:VEVENT\r\n"
-        f"UID:{booking.id}@seatsync.app\r\n"
+        f"UID:{booking.id}@seatbooking.app\r\n"
         f"DTSTAMP:{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}\r\n"
         f"DTSTART:{start_dt.strftime('%Y%m%dT%H%M%SZ')}\r\n"
         f"DTEND:{end_dt.strftime('%Y%m%dT%H%M%SZ')}\r\n"
         f"SUMMARY:{summary}\r\n"
-        f"DESCRIPTION:SeatSync Reservation: {summary}. Status: CONFIRMED. Total: INR {booking.amount}\r\n"
+        f"DESCRIPTION:Seat Booking App reservation: {summary}. Status: CONFIRMED. Total: INR {booking.amount}\r\n"
         f"LOCATION:{location_str}\r\n"
         "STATUS:CONFIRMED\r\n"
         "BEGIN:VALARM\r\n"
         "TRIGGER:-PT15M\r\n"
         "ACTION:DISPLAY\r\n"
-        "DESCRIPTION:SeatSync Workspace Booking starts in 15 minutes\r\n"
+        "DESCRIPTION:Seat Booking App reservation starts in 15 minutes\r\n"
         "END:VALARM\r\n"
         "END:VEVENT\r\n"
         "END:VCALENDAR\r\n"
@@ -719,7 +849,7 @@ async def get_booking_ical(
         content=ics_content,
         media_type="text/calendar",
         headers={
-            "Content-Disposition": f'attachment; filename="seatsync_booking_{booking.id}.ics"'
+            "Content-Disposition": f'attachment; filename="seat_booking_{booking.id}.ics"'
         }
     )
 
@@ -732,9 +862,12 @@ async def cancel_booking(
     current_user: User = Depends(get_current_user)
 ):
     try:
-        query = select(Booking).where(Booking.id == booking_id).with_for_update()
-        if current_user.role != "ADMIN":
-            query = query.where(Booking.user_id == current_user.id)
+        # A reservation belongs to its creator. Administrators may view bookings,
+        # but cannot release another employee's room slot through this endpoint.
+        query = select(Booking).where(
+            Booking.id == booking_id,
+            Booking.user_id == current_user.id
+        ).with_for_update()
             
         booking = (await db.execute(query)).scalar_one_or_none()
         if not booking:
@@ -789,10 +922,12 @@ async def cancel_booking(
 
 @router.get("/my", response_model=List[BookingDetailResponse])
 async def get_my_bookings(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    result = await db.execute(
+    query = (
         select(Booking)
         .options(
             selectinload(Booking.user),
@@ -804,8 +939,18 @@ async def get_my_bookings(
             selectinload(Booking.time_slot)
         )
         .where(Booking.user_id == current_user.id)
-        .order_by(Booking.created_at.desc())
     )
+    if status:
+        query = query.where(Booking.status == status)
+    if search:
+        like = f"%{search}%"
+        query = query.where(
+            or_(
+                cast(Booking.id, String).ilike(like),
+                cast(Booking.booking_date, String).ilike(like),
+            )
+        )
+    result = await db.execute(query.order_by(Booking.created_at.desc()))
     bookings = result.scalars().all()
     return [map_booking_to_detail(b) for b in bookings]
 

@@ -15,7 +15,7 @@ from app.core.config import settings
 conversations: Dict[str, List[types.Content]] = {}
 
 SYSTEM_INSTRUCTION = """
-You are a helpful, courteous, and intelligent AI concierge for the SeatSync enterprise workspace booking application.
+You are a helpful, courteous, and intelligent AI concierge for the Seat Booking App enterprise workspace booking application.
 Your goal is to help users find workspaces, book seats, purchase Day Passes, reserve Meeting & Conference Rooms, check wallet balances, add credits, and manage bookings.
 You have access to a set of backend tools. ALWAYS use these tools to fetch real live data. NEVER invent locations, branches, rooms, seats, prices, wallet balances, or booking IDs.
 
@@ -43,7 +43,7 @@ async def process_chat_message(
     current_user: User
 ) -> ChatResponse:
     
-    api_key = os.getenv("GEMINI_API_KEY", "")
+    api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         return ChatResponse(
             conversation_id=conversation_id,
@@ -72,16 +72,16 @@ async def process_chat_message(
         chatbot_tools.intent_add_credits,
         chatbot_tools.recommend_seat,
         chatbot_tools.recommend_room,
-        chatbot_tools.resolve_booking_conflict
-    ]
-
-
     # Retrieve or create conversation history
     if conversation_id not in conversations:
         conversations[conversation_id] = []
         
     history = conversations[conversation_id]
 
+    # Instantiate the tools class so methods are bound to db and current_user
+    bot_tools = ChatbotTools(db=db, current_user=current_user)
+    tools_list = [getattr(bot_tools, m) for m in dir(bot_tools) if callable(getattr(bot_tools, m)) and not m.startswith("__")]
+    
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_INSTRUCTION,
         temperature=0.2,
