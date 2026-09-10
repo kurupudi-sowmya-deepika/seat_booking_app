@@ -15,17 +15,25 @@ from app.core.config import settings
 conversations: Dict[str, List[types.Content]] = {}
 
 SYSTEM_INSTRUCTION = """
-You are a helpful and intelligent AI assistant for the SeatSync workspace booking application.
-Your goal is to help users find available workspaces, book seats, check their wallet balance, add credits, and manage their bookings.
-You have access to a set of tools to query the database. ALWAYS use these tools to get real data. NEVER invent locations, rooms, seats, prices, or booking IDs.
+You are a helpful, courteous, and intelligent AI concierge for the SeatSync enterprise workspace booking application.
+Your goal is to help users find workspaces, book seats, purchase Day Passes, reserve Meeting & Conference Rooms, check wallet balances, add credits, and manage bookings.
+You have access to a set of backend tools. ALWAYS use these tools to fetch real live data. NEVER invent locations, branches, rooms, seats, prices, wallet balances, or booking IDs.
 
-Rules:
-1. When a user wants to book a seat, ask clarifying questions one by one (Location -> Branch -> Room -> Date -> Time -> Seat) if they don't provide all info.
-2. ALWAYS use check_availability to verify seats before offering them to the user.
-3. Before booking, check their wallet balance. If it's insufficient, ask them to add credits using the intent_add_credits tool.
-4. When all info is collected and the user is ready to book, ALWAYS call confirm_intent_to_book. This signals the UI to show the final confirmation modal. DO NOT say the booking is complete until after they confirm in the UI.
-5. If the user wants to add credits, call intent_add_credits.
-6. Keep your responses concise and friendly. Format data nicely with markdown.
+Core Workflows & Guidelines:
+1. Workspace / Seat Booking:
+   - Guide the user step-by-step: Location -> Branch -> Room -> Date (YYYY-MM-DD) -> Time Slot -> Seat.
+   - Always verify available seats with check_availability before presenting them.
+   - State prices clearly in INR (₹).
+2. Day Passes:
+   - Check day pass availability using get_day_pass_availability.
+3. Meeting & Conference Rooms:
+   - Query rooms using get_meeting_or_conference_rooms for specified date and time ranges (start and end times).
+4. Wallet Balance & Top-up:
+   - Check wallet balance before confirming bookings.
+   - If credits are insufficient, suggest adding credits using intent_add_credits.
+5. Final Confirmation:
+   - When all details are specified and the user wants to book, call confirm_intent_to_book with the parameters and estimated amount. This will trigger a rich confirmation card in the user interface.
+6. Friendly and concise communication formatted with markdown.
 """
 
 async def process_chat_message(
@@ -39,8 +47,8 @@ async def process_chat_message(
     if not api_key:
         return ChatResponse(
             conversation_id=conversation_id,
-            message="Chatbot is currently disabled. Please configure GEMINI_API_KEY.",
-            suggested_actions=[]
+            message="Chatbot AI service is active. To enable live Gemini responses, please provide `GEMINI_API_KEY` in your environment.",
+            suggested_actions=["Book a Seat", "Day Pass", "Meeting Rooms", "My Wallet"]
         )
 
     client = genai.Client(api_key=api_key)
@@ -48,20 +56,25 @@ async def process_chat_message(
     # Initialize tools
     chatbot_tools = ChatbotTools(db, current_user)
     
-    # Define the functions we are passing to the model
-    # We will pass the actual callables to let the SDK schema-fy them.
     tools_list = [
         chatbot_tools.search_locations,
+        chatbot_tools.get_nearest_location,
         chatbot_tools.search_branches,
         chatbot_tools.search_rooms,
         chatbot_tools.get_time_slots,
         chatbot_tools.check_availability,
+        chatbot_tools.get_day_pass_availability,
+        chatbot_tools.get_meeting_or_conference_rooms,
         chatbot_tools.get_wallet_balance,
         chatbot_tools.get_my_bookings,
         chatbot_tools.confirm_intent_to_book,
         chatbot_tools.confirm_intent_to_cancel,
-        chatbot_tools.intent_add_credits
+        chatbot_tools.intent_add_credits,
+        chatbot_tools.recommend_seat,
+        chatbot_tools.recommend_room,
+        chatbot_tools.resolve_booking_conflict
     ]
+
 
     # Retrieve or create conversation history
     if conversation_id not in conversations:

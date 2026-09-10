@@ -26,13 +26,23 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         wallet_id = session.get("client_reference_id")
+        payment_intent_id = session.get("payment_intent") or session.get("id")
         
         # Determine the topup amount (amount_total is in cents/paise)
         amount = session.get("amount_total", 0) / 100.0
         
         if wallet_id and amount > 0:
-            result = await db.execute(select(Wallet).where(Wallet.id == wallet_id))
-            wallet = result.scalar_one_or_none()
+            # Check idempotency
+            existing_tx = await db.execute(
+                select(CreditTransaction).where(CreditTransaction.reference_id == str(payment_intent_id))
+            )
+            if existing_tx.scalar_one_or_none():
+                return {"status": "success", "message": "Already processed"}
+                
+            wallet_result = await db.execute(
+                select(Wallet).where(Wallet.id == wallet_id).with_for_update()
+            )
+            wallet = wallet_result.scalar_one_or_none()
             if wallet:
                 balance_before = wallet.balance
                 wallet.balance += amount
@@ -46,11 +56,12 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     balance_before=balance_before,
                     balance_after=balance_after,
                     reference_type="STRIPE_TOPUP",
-                    reference_id=session.get("payment_intent"),
-                    description="Wallet Recharge via Stripe",
+                    reference_id=str(payment_intent_id),
+                    description="Wallet Recharge via Stripe Checkout",
                     status="SUCCESS"
                 )
                 db.add(transaction)
                 await db.commit()
 
     return {"status": "success"}
+

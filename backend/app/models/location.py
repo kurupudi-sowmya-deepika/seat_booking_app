@@ -1,7 +1,8 @@
-from sqlalchemy import String, Float, ForeignKey, Integer, Numeric
+from sqlalchemy import String, Float, ForeignKey, Integer, Numeric, Time, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 from typing import List
+from datetime import time
 
 class Location(BaseModel):
     __tablename__ = "locations"
@@ -26,6 +27,9 @@ class Branch(BaseModel):
     name: Mapped[str] = mapped_column(String)
     address: Mapped[str] = mapped_column(String)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
+    opening_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    closing_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    is_24x7: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default="ACTIVE")
 
     location = relationship("Location", back_populates="branches")

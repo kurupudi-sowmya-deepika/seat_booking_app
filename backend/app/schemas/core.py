@@ -20,13 +20,26 @@ class BranchBase(BaseModel):
     name: str
     address: str
     description: Optional[str] = None
+    opening_time: Optional[time] = None
+    closing_time: Optional[time] = None
+    is_24x7: Optional[bool] = False
     status: Optional[str] = "ACTIVE"
 
 class RoomBase(BaseModel):
     branch_id: UUID
     name: str
     description: Optional[str] = None
+    room_type: Optional[str] = "WORKSPACE" # WORKSPACE, MEETING_ROOM, CONFERENCE_ROOM
     capacity: int
+    price_per_hour: Optional[float] = None
+    status: Optional[str] = "ACTIVE"
+
+class DayPassBase(BaseModel):
+    branch_id: UUID
+    name: str
+    description: Optional[str] = None
+    price: float
+    daily_capacity: int
     status: Optional[str] = "ACTIVE"
 
 class FacilityBase(BaseModel):
@@ -52,6 +65,7 @@ class BranchCreate(BranchBase): pass
 class RoomCreate(RoomBase):
     facility_ids: Optional[List[UUID]] = []
 
+class DayPassCreate(DayPassBase): pass
 class FacilityCreate(FacilityBase): pass
 class SeatCreate(SeatBase): pass
 class TimeSlotCreate(TimeSlotBase): pass
@@ -62,6 +76,7 @@ class BranchUpdate(BranchBase): pass
 class RoomUpdate(RoomBase):
     facility_ids: Optional[List[UUID]] = None
 
+class DayPassUpdate(DayPassBase): pass
 class FacilityUpdate(FacilityBase): pass
 class SeatUpdate(SeatBase): pass
 class TimeSlotUpdate(TimeSlotBase): pass
@@ -83,6 +98,11 @@ class RoomResponse(RoomBase):
     class Config:
         from_attributes = True
 
+class DayPassResponse(DayPassBase):
+    id: UUID
+    class Config:
+        from_attributes = True
+
 class BranchResponse(BranchBase):
     id: UUID
     class Config:
@@ -97,3 +117,4 @@ class TimeSlotResponse(TimeSlotBase):
     id: UUID
     class Config:
         from_attributes = True
+

@@ -26,9 +26,31 @@ class TransactionResponse(BaseModel):
 
 class WalletResponse(BaseModel):
     id: UUID
+    user_id: Optional[UUID] = None
     balance: float
     currency: str
     transactions: List[TransactionResponse] = []
     
     class Config:
         from_attributes = True
+
+class AdminAdjustRequest(BaseModel):
+    wallet_id: Optional[UUID] = None
+    user_id: Optional[UUID] = None
+    amount: float
+    transaction_type: TransactionType = TransactionType.ADJUSTMENT
+    reason: str
+
+class AdminWalletDetail(BaseModel):
+    id: UUID
+    user_id: UUID
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    balance: float
+    currency: str
+    status: str
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+

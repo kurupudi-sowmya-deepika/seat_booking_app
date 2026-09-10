@@ -6,9 +6,11 @@ from dotenv import load_dotenv
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.db.database import AsyncSessionLocal, engine
 from app.models import User, Location, Branch, Room, Facility, Seat, TimeSlot
-from app.models.user import UserRole, AuthProvider
+from app.models.location import DayPass
+from app.models.user import UserRole, AuthProvider, UserStatus
 from app.models.wallet import Wallet
 from app.core.security import get_password_hash
 from datetime import time
@@ -17,108 +19,274 @@ load_dotenv()
 
 async def seed_db():
     async with AsyncSessionLocal() as db:
-        print("Seeding database...")
+        print("🌱 Seeding enterprise workspace database...")
         
         # 1. Admin User
         admin_email = "admin@example.com"
-        result = await db.execute(User.__table__.select().where(User.email == admin_email))
-        admin_exists = result.first()
+        result = await db.execute(select(User).where(User.email == admin_email))
+        admin = result.scalar_one_or_none()
         
-        if not admin_exists:
+        if not admin:
             admin = User(
                 email=admin_email,
                 password_hash=get_password_hash("admin123"),
                 name="System Admin",
                 role=UserRole.ADMIN,
-                auth_provider=AuthProvider.LOCAL
+                auth_provider=AuthProvider.LOCAL,
+                status=UserStatus.ACTIVE
             )
             db.add(admin)
             await db.flush()
-            db.add(Wallet(user_id=admin.id, balance=10000.0))
-            print("Created Admin User")
+            db.add(Wallet(user_id=admin.id, balance=10000.0, currency="INR"))
+            print("✅ Created Admin User (admin@example.com / admin123) with ₹10,000 wallet")
 
         # 2. Basic User
         user_email = "user@example.com"
-        result = await db.execute(User.__table__.select().where(User.email == user_email))
-        user_exists = result.first()
+        result = await db.execute(select(User).where(User.email == user_email))
+        user = result.scalar_one_or_none()
         
-        if not user_exists:
+        if not user:
             user = User(
                 email=user_email,
                 password_hash=get_password_hash("user123"),
-                name="Regular User",
+                name="Deepika Kurupudi",
                 role=UserRole.USER,
-                auth_provider=AuthProvider.LOCAL
+                auth_provider=AuthProvider.LOCAL,
+                status=UserStatus.ACTIVE
             )
             db.add(user)
             await db.flush()
-            db.add(Wallet(user_id=user.id, balance=500.0))
-            print("Created Regular User")
+            db.add(Wallet(user_id=user.id, balance=2500.0, currency="INR"))
+            print("✅ Created Regular User (user@example.com / user123) with ₹2,500 wallet")
 
         # 3. Facilities
-        facility_names = ["Wi-Fi", "AC", "Monitor", "Parking", "Power Socket", "Coffee"]
-        facilities = []
-        for name in facility_names:
-            fac = Facility(name=name, description=f"{name} facility")
-            db.add(fac)
-            facilities.append(fac)
+        facility_data = [
+            ("High-Speed Wi-Fi", "Gigabit fiber with dedicated SSID"),
+            ("Air Conditioning", "Central HVAC climate control"),
+            ("Dual 4K Monitors", "USB-C docking station with two 27-inch 4K displays"),
+            ("Power Socket", "Universal power sockets with fast USB-C PD"),
+            ("Parking", "Reserved underground vehicle and EV charging parking"),
+            ("Artisan Coffee & Tea", "Unlimited espresso, cappuccino, green tea and snacks"),
+            ("Heavy-Duty Printer", "High-speed laser printing and color scanning"),
+            ("Whiteboard", "Magnetic dry-erase glass board with markers"),
+            ("4K Projector", "Ceiling-mounted 4K UHD laser projector"),
+            ("Video Conferencing", "Logitech Rally 4K pan-tilt camera with microphone pods")
+        ]
+        
+        facilities_map = {}
+        for name, desc in facility_data:
+            f_res = await db.execute(select(Facility).where(Facility.name == name))
+            fac = f_res.scalar_one_or_none()
+            if not fac:
+                fac = Facility(name=name, description=desc)
+                db.add(fac)
+                await db.flush()
+            facilities_map[name] = fac
             
         await db.commit()
-        print("Created Facilities")
+        print(f"✅ Loaded {len(facilities_map)} Facilities")
 
-        # 4. Locations
-        loc_blr = Location(name="Bangalore HQ", address="123 Tech Park", city="Bangalore", state="Karnataka", country="India", postal_code="560001")
-        loc_hyd = Location(name="Hyderabad Hub", address="456 Cyber City", city="Hyderabad", state="Telangana", country="India", postal_code="500081")
-        db.add_all([loc_blr, loc_hyd])
+        # 4. Locations (with GPS coordinates for Auto-Detect)
+        location_seeds = [
+            {
+                "name": "Bangalore HQ", 
+                "address": "Prestige Tech Park, Outer Ring Road", 
+                "city": "Bangalore", 
+                "state": "Karnataka", 
+                "country": "India", 
+                "postal_code": "560103",
+                "latitude": 12.9352, 
+                "longitude": 77.6946
+            },
+            {
+                "name": "Hyderabad Hub", 
+                "address": "Cyber Towers, Hitec City", 
+                "city": "Hyderabad", 
+                "state": "Telangana", 
+                "country": "India", 
+                "postal_code": "500081",
+                "latitude": 17.4504, 
+                "longitude": 78.3808
+            },
+            {
+                "name": "Chennai Center", 
+                "address": "Tidel Park, Rajiv Gandhi Salai", 
+                "city": "Chennai", 
+                "state": "Tamil Nadu", 
+                "country": "India", 
+                "postal_code": "600113",
+                "latitude": 12.9893, 
+                "longitude": 80.2483
+            }
+        ]
+
+        locations = {}
+        for loc_data in location_seeds:
+            l_res = await db.execute(select(Location).where(Location.name == loc_data["name"]))
+            loc = l_res.scalar_one_or_none()
+            if not loc:
+                loc = Location(**loc_data)
+                db.add(loc)
+                await db.flush()
+            locations[loc.city] = loc
+
         await db.commit()
-        await db.refresh(loc_blr)
-        await db.refresh(loc_hyd)
+        print(f"✅ Loaded {len(locations)} Locations with GPS coordinates")
 
         # 5. Branches
-        br_wf = Branch(location_id=loc_blr.id, name="Whitefield", address="Whitefield Main Rd", description="Main campus")
-        br_km = Branch(location_id=loc_blr.id, name="Koramangala", address="100ft Road", description="Startup hub")
-        br_hc = Branch(location_id=loc_hyd.id, name="Hitech City", address="Mindspace", description="Tech hub")
-        db.add_all([br_wf, br_km, br_hc])
-        await db.commit()
-        await db.refresh(br_wf)
-
-        # 6. Rooms
-        rm_a = Room(branch_id=br_wf.id, name="Room A", description="Quiet Zone", capacity=10, facilities=facilities)
-        rm_b = Room(branch_id=br_wf.id, name="Room B", description="Collaborative Zone", capacity=15)
-        rm_meet = Room(branch_id=br_wf.id, name="Meeting Room", description="For meetings", capacity=5)
-        db.add_all([rm_a, rm_b, rm_meet])
-        await db.commit()
-        await db.refresh(rm_a)
-
-        # 7. Seats
-        seats = []
-        for i in range(1, 11): # 10 seats in Room A
-            seat = Seat(
-                room_id=rm_a.id,
-                seat_number=f"A{i:02d}",
-                seat_type="PREMIUM" if i <= 2 else "STANDARD",
-                description="Near window" if i <= 2 else "Standard seat",
-                price=200.00 if i <= 2 else 100.00
-            )
-            seats.append(seat)
-        db.add_all(seats)
-
-        # 8. Time Slots
-        slots = [
-            (9, 10), (10, 11), (11, 12), (12, 13), 
-            (14, 15), (15, 16), (16, 17)
+        branches_data = [
+            (locations["Bangalore"].id, "Whitefield", "ITPL Main Road, Whitefield", "Flagship tech campus"),
+            (locations["Bangalore"].id, "Koramangala", "80 Feet Road, 4th Block Koramangala", "Vibrant startup accelerator hub"),
+            (locations["Hyderabad"].id, "Hitech City", "Mindspace IT Park, Building 12", "Modern enterprise workspace"),
+            (locations["Hyderabad"].id, "Gachibowli", "Financial District, Nanakramguda", "Premium financial corridor hub"),
+            (locations["Chennai"].id, "Guindy", "Olympia Tech Park, SIDCO Industrial Estate", "Central metro connected center"),
+            (locations["Chennai"].id, "OMR", "Ascendas IT Park, Taramani", "IT Expressway campus")
         ]
-        time_slots = []
-        for start, end in slots:
-            ts = TimeSlot(
-                start_time=time(start, 0),
-                end_time=time(end, 0)
-            )
-            time_slots.append(ts)
-        db.add_all(time_slots)
+
+        branches = []
+        for loc_id, b_name, b_addr, b_desc in branches_data:
+            b_res = await db.execute(select(Branch).where(Branch.name == b_name))
+            br = b_res.scalar_one_or_none()
+            if not br:
+                br = Branch(location_id=loc_id, name=b_name, address=b_addr, description=b_desc)
+                db.add(br)
+                await db.flush()
+            branches.append(br)
 
         await db.commit()
-        print("Seeded basic locations, branches, rooms, seats and time slots.")
+        print(f"✅ Loaded {len(branches)} Branches")
+
+        # 6. Rooms, Day Passes, Seats per Branch
+        for br in branches:
+            # Day Pass
+            dp_res = await db.execute(select(DayPass).where(DayPass.branch_id == br.id))
+            if not dp_res.scalar_one_or_none():
+                dp = DayPass(
+                    branch_id=br.id,
+                    name=f"{br.name} Hot Desk Day Pass",
+                    description="Full day access to hot desks, high-speed Wi-Fi, coffee bar, and common facilities.",
+                    price=450.00 if "Koramangala" in br.name or "Hitech" in br.name else 400.00,
+                    daily_capacity=25,
+                    status="ACTIVE"
+                )
+                db.add(dp)
+
+            # Workspace Room A (Quiet Zone)
+            rm_a_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Room A - Focus Zone"))
+            rm_a = rm_a_res.scalar_one_or_none()
+            if not rm_a:
+                rm_a = Room(
+                    branch_id=br.id,
+                    name="Room A - Focus Zone",
+                    description="Quiet dedicated workspace with ergonomic Herman Miller desks",
+                    room_type="WORKSPACE",
+                    capacity=12,
+                    status="ACTIVE"
+                )
+                rm_a.facilities = [facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"], facilities_map["Power Socket"], facilities_map["Artisan Coffee & Tea"]]
+                db.add(rm_a)
+                await db.flush()
+
+                # Seats for Room A
+                for i in range(1, 13):
+                    seat_num = f"A{i:02d}"
+                    is_prem = i in [1, 2, 5, 6]
+                    seat = Seat(
+                        room_id=rm_a.id,
+                        seat_number=seat_num,
+                        seat_type="PREMIUM" if is_prem else "STANDARD",
+                        description="Ultra-wide monitor & window view" if is_prem else "Standard ergonomic desk",
+                        price=150.00 if is_prem else 90.00,
+                        status="ACTIVE"
+                    )
+                    db.add(seat)
+
+            # Workspace Room B (Collaboration Zone)
+            rm_b_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Room B - Collaboration"))
+            rm_b = rm_b_res.scalar_one_or_none()
+            if not rm_b:
+                rm_b = Room(
+                    branch_id=br.id,
+                    name="Room B - Collaboration",
+                    description="Open desk layout optimized for team brainstorms and agile sprints",
+                    room_type="WORKSPACE",
+                    capacity=10,
+                    status="ACTIVE"
+                )
+                rm_b.facilities = [facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"], facilities_map["Whiteboard"], facilities_map["Artisan Coffee & Tea"]]
+                db.add(rm_b)
+                await db.flush()
+
+                for i in range(1, 11):
+                    seat_num = f"B{i:02d}"
+                    seat = Seat(
+                        room_id=rm_b.id,
+                        seat_number=seat_num,
+                        seat_type="STANDARD",
+                        description="Collaboration desk with whiteboards nearby",
+                        price=80.00,
+                        status="ACTIVE"
+                    )
+                    db.add(seat)
+
+            # Meeting Room (Hourly)
+            mr_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Executive Meeting Suite"))
+            if not mr_res.scalar_one_or_none():
+                mr = Room(
+                    branch_id=br.id,
+                    name="Executive Meeting Suite",
+                    description="Soundproof meeting room equipped for client presentations and video calls",
+                    room_type="MEETING_ROOM",
+                    capacity=6,
+                    price_per_hour=400.00,
+                    status="ACTIVE"
+                )
+                mr.facilities = [
+                    facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"],
+                    facilities_map["Video Conferencing"], facilities_map["Whiteboard"],
+                    facilities_map["Artisan Coffee & Tea"]
+                ]
+                db.add(mr)
+
+            # Conference Room (Hourly)
+            cr_res = await db.execute(select(Room).where(Room.branch_id == br.id, Room.name == "Grand Boardroom"))
+            if not cr_res.scalar_one_or_none():
+                cr = Room(
+                    branch_id=br.id,
+                    name="Grand Boardroom",
+                    description="Large enterprise conference boardroom with dual 4K laser projection and telepresence",
+                    room_type="CONFERENCE_ROOM",
+                    capacity=18,
+                    price_per_hour=1200.00,
+                    status="ACTIVE"
+                )
+                cr.facilities = [
+                    facilities_map["High-Speed Wi-Fi"], facilities_map["Air Conditioning"],
+                    facilities_map["4K Projector"], facilities_map["Video Conferencing"],
+                    facilities_map["Whiteboard"], facilities_map["Artisan Coffee & Tea"],
+                    facilities_map["Dual 4K Monitors"]
+                ]
+                db.add(cr)
+
+        # 7. Time Slots
+        time_slot_definitions = [
+            (9, 10), (10, 11), (11, 12), (12, 13), 
+            (14, 15), (15, 16), (16, 17), (17, 18)
+        ]
+        for start_h, end_h in time_slot_definitions:
+            ts_res = await db.execute(
+                select(TimeSlot).where(TimeSlot.start_time == time(start_h, 0), TimeSlot.end_time == time(end_h, 0))
+            )
+            if not ts_res.scalar_one_or_none():
+                ts = TimeSlot(
+                    start_time=time(start_h, 0),
+                    end_time=time(end_h, 0),
+                    status="ACTIVE"
+                )
+                db.add(ts)
+
+        await db.commit()
+        print("✨ Database successfully seeded with enterprise locations, branches, rooms, seats, day passes, meeting & conference rooms!")
 
 if __name__ == "__main__":
     asyncio.run(seed_db())

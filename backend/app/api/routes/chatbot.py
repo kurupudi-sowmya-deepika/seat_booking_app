@@ -11,6 +11,7 @@ from app.chatbot.service import process_chat_message, conversations
 router = APIRouter()
 
 @router.post("/message", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse)
 async def send_message(
     msg_in: ChatMessage,
     db: AsyncSession = Depends(get_db),
