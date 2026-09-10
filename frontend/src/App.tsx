@@ -15,24 +15,51 @@ import Register from './pages/Register';
 // User Pages
 import Dashboard from './pages/Dashboard';
 import Booking from './pages/Booking';
+import DayPass from './pages/DayPass';
+import MeetingRooms from './pages/MeetingRooms';
+import ConferenceRooms from './pages/ConferenceRooms';
+import Visitors from './pages/Visitors';
 import BookingSuccess from './pages/BookingSuccess';
 import MyBookings from './pages/MyBookings';
 import Wallet from './pages/Wallet';
+import Transactions from './pages/Transactions';
+import Profile from './pages/Profile';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminBooking from './pages/admin/AdminBooking';
-import AdminBilling from './pages/admin/AdminBilling';
+import AdminReports from './pages/admin/AdminReports';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminBookings from './pages/admin/AdminBookings';
+import AdminWallets from './pages/admin/AdminWallets';
+import AdminLocations from './pages/admin/AdminLocations';
+import AdminBranches from './pages/admin/AdminBranches';
+import AdminRooms from './pages/admin/AdminRooms';
+import AdminFacilities from './pages/admin/AdminFacilities';
+import AdminSeats from './pages/admin/AdminSeats';
+import AdminDayPasses from './pages/admin/AdminDayPasses';
+import AdminMeetingRooms from './pages/admin/AdminMeetingRooms';
+import AdminConferenceRooms from './pages/admin/AdminConferenceRooms';
+import AdminTimeSlots from './pages/admin/AdminTimeSlots';
 import AdminSettings from './pages/admin/AdminSettings';
 
 const ProtectedRoute = ({ children, adminOnly = false }: { children: React.ReactNode, adminOnly?: boolean }) => {
   const { user, loading } = useAuth();
   
-  if (loading) return <div className="flex-center min-h-screen">Loading...</div>;
-  if (!user) return <Navigate to="/login" />;
-  if (adminOnly && user.role !== 'ADMIN') return <Navigate to="/" />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#007bc0] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm font-bold text-gray-500">Authenticating Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (adminOnly && user.role !== 'ADMIN') return <Navigate to="/" replace />;
   
-  return children;
+  return <>{children}</>;
 };
 
 function App() {
@@ -52,9 +79,15 @@ function App() {
             }>
               <Route index element={<Dashboard />} />
               <Route path="booking" element={<Booking />} />
+              <Route path="day-pass" element={<DayPass />} />
+              <Route path="meeting-rooms" element={<MeetingRooms />} />
+              <Route path="conference-rooms" element={<ConferenceRooms />} />
+              <Route path="visitors" element={<Visitors />} />
               <Route path="booking/success" element={<BookingSuccess />} />
               <Route path="my-bookings" element={<MyBookings />} />
               <Route path="wallet" element={<Wallet />} />
+              <Route path="transactions" element={<Transactions />} />
+              <Route path="profile" element={<Profile />} />
             </Route>
 
             {/* Admin Routes */}
@@ -64,11 +97,24 @@ function App() {
               </ProtectedRoute>
             }>
               <Route index element={<AdminDashboard />} />
-              <Route path="booking" element={<AdminBooking />} />
-              <Route path="billing" element={<AdminBilling />} />
+              <Route path="reports" element={<AdminReports />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="bookings" element={<AdminBookings />} />
+              <Route path="wallets" element={<AdminWallets />} />
+              <Route path="locations" element={<AdminLocations />} />
+              <Route path="branches" element={<AdminBranches />} />
+              <Route path="rooms" element={<AdminRooms />} />
+              <Route path="facilities" element={<AdminFacilities />} />
+              <Route path="seats" element={<AdminSeats />} />
+              <Route path="day-passes" element={<AdminDayPasses />} />
+              <Route path="meeting-rooms" element={<AdminMeetingRooms />} />
+              <Route path="conference-rooms" element={<AdminConferenceRooms />} />
+              <Route path="time-slots" element={<AdminTimeSlots />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
             
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
       </AuthProvider>

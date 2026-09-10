@@ -1,16 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMsal } from '@azure/msal-react';
-import { LogOut, Home, Calendar, Wallet, Settings, ChevronRight } from 'lucide-react';
+import {
+  LogOut, LayoutDashboard, Calendar, Wallet, Tag, Video,
+  ShieldCheck, UserCheck, Armchair, Clock, User,
+  ChevronRight, ArrowRight, Sparkles, Shield, Menu, X, PlusCircle
+} from 'lucide-react';
+import api from '../services/api';
 import ChatbotWidget from '../components/ChatbotWidget';
+import NotificationCenter from '../components/NotificationCenter';
 
-const MainLayout: React.FC = () => {
+export const MainLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { instance } = useMsal();
   const navigate = useNavigate();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [wallet, setWallet] = useState<any>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    api.get('/wallet/').then(res => setWallet(res.data)).catch(() => { });
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -18,97 +30,188 @@ const MainLayout: React.FC = () => {
     navigate('/login');
   };
 
-  const navLinks = [
-    { path: '/', label: 'Home', icon: <Home size={20} /> },
-    { path: '/booking', label: 'Book Meeting', icon: <Calendar size={20} /> },
-    { path: '/my-bookings', label: 'My Bookings', icon: <Calendar size={20} /> },
-    { path: '/wallet', label: 'Billing', icon: <Wallet size={20} /> },
+  const navSections = [
+    {
+      group: 'Overview & Activity',
+      items: [
+        { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        { path: '/my-bookings', label: 'My Bookings', icon: <Calendar size={18} /> },
+        { path: '/visitors', label: 'Visitors & Passes', icon: <UserCheck size={18} /> },
+      ]
+    },
+    {
+      group: 'Reserve Workspaces',
+      items: [
+        { path: '/booking', label: 'Book Desk / Seat', icon: <Armchair size={18} /> },
+        { path: '/day-pass', label: 'Day Pass', icon: <Tag size={18} /> },
+        { path: '/meeting-rooms', label: 'Meeting Rooms', icon: <Video size={18} /> },
+        { path: '/conference-rooms', label: 'Conference Rooms', icon: <ShieldCheck size={18} /> },
+      ]
+    },
+    {
+      group: 'Billing & Account',
+      items: [
+        { path: '/wallet', label: 'Wallet & Transactions', icon: <Wallet size={18} /> },
+        { path: '/profile', label: 'My Profile', icon: <User size={18} /> },
+      ]
+    }
   ];
 
-  if (user?.role === 'ADMIN') {
-    navLinks.push({ path: '/admin', label: 'Admin Panel', icon: <Settings size={20} /> });
-  }
-
   return (
-    <div className="flex h-screen bg-white font-['Inter'] overflow-hidden">
-      {/* Sidebar */}
-      <aside 
-        className={`bg-[#005691] text-white transition-all duration-300 flex flex-col ${
-          sidebarOpen ? 'w-64' : 'w-16'
-        }`}
-        onMouseEnter={() => setSidebarOpen(true)}
-        onMouseLeave={() => setSidebarOpen(false)}
+    <div className="flex h-screen bg-gray-50 font-['Inter'] overflow-hidden">
+      {/* Mobile Drawer Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 z-40 lg:hidden backdrop-blur-sm"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Navigation */}
+      <aside
+        className={`bg-[#0f172a] text-slate-300 transition-all duration-300 flex flex-col shrink-0 z-50 fixed lg:static inset-y-0 left-0 ${mobileMenuOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
+          } ${sidebarOpen ? 'lg:w-64' : 'lg:w-20'}`}
       >
-        <div className="h-16 flex items-center justify-center border-b border-white/10">
-          {sidebarOpen ? (
-            <span className="font-bold text-lg tracking-wider">MENU</span>
-          ) : (
-            <ChevronRight size={24} />
-          )}
+        {/* Brand Header */}
+        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-800 shrink-0">
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#007bc0] text-white flex items-center justify-center font-black text-sm shadow">
+              SS
+            </div>
+            {(sidebarOpen || mobileMenuOpen) && (
+              <span className="font-extrabold text-sm tracking-wide text-white">SeatSync</span>
+            )}
+          </Link>
+
+          <div className="flex items-center">
+            {/* Desktop collapse button */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="text-slate-400 hover:text-white p-1 rounded-md hidden lg:block"
+              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              {sidebarOpen ? <ChevronRight size={18} className="transform rotate-180" /> : <ChevronRight size={18} />}
+            </button>
+            {/* Mobile close button */}
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-slate-400 hover:text-white p-1 rounded-md lg:hidden"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
-        
-        <nav className="flex-1 py-4 flex flex-col gap-2">
-          {navLinks.map((link) => {
-            const isActive = location.pathname === link.path || (link.path !== '/' && location.pathname.startsWith(link.path));
-            return (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`flex items-center px-4 py-3 transition-colors ${
-                  isActive ? 'bg-white/20 border-l-4 border-white' : 'hover:bg-white/10 border-l-4 border-transparent'
-                }`}
-                title={link.label}
-              >
-                <div className="min-w-[24px] flex justify-center">{link.icon}</div>
-                <span className={`ml-4 whitespace-nowrap transition-opacity duration-300 ${sidebarOpen ? 'opacity-100' : 'opacity-0 hidden'}`}>
-                  {link.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
+
+        {/* Navigation Sections */}
+        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-slate-800">
+          {navSections.map((sec, idx) => (
+            <div key={idx} className="space-y-1">
+              {(sidebarOpen || mobileMenuOpen) && (
+                <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  {sec.group}
+                </p>
+              )}
+              {sec.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    title={item.label}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${isActive
+                      ? 'bg-[#007bc0] text-white shadow-md'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                      }`}
+                  >
+                    <div className="shrink-0">{item.icon}</div>
+                    {(sidebarOpen || mobileMenuOpen) && <span className="truncate">{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-3 border-t border-slate-800 space-y-2 shrink-0">
+          {user?.role === 'ADMIN' && (
+            <Link
+              to="/admin"
+              className="flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-purple-400 hover:text-white bg-purple-950/40 hover:bg-purple-900/50 border border-purple-800/40 rounded-xl transition-all"
+              title="Admin Portal"
+            >
+              <Shield size={16} className="shrink-0 text-purple-400" />
+              {(sidebarOpen || mobileMenuOpen) && <span>Admin Portal</span>}
+            </Link>
+          )}
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-xl transition-all text-left"
+            title="Sign Out"
+          >
+            <LogOut size={16} className="shrink-0" />
+            {(sidebarOpen || mobileMenuOpen) && <span>Sign Out</span>}
+          </button>
+        </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main Content Viewport */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0">
-          <div className="flex items-center">
-            <h1 className="text-[#007bc0] text-xl font-medium tracking-wide">
-              Seat Booking Management
-            </h1>
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-sm z-20">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu trigger */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-1.5 text-gray-600 hover:text-gray-900 rounded-lg lg:hidden"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="px-2.5 py-1 bg-blue-50 text-[#007bc0] border border-blue-200 font-extrabold text-[11px] rounded-full uppercase tracking-wider">
+              Member Workspace
+            </span>
+            <span className="text-xs text-gray-500 hidden sm:inline"></span>
           </div>
-          
-          <div className="flex items-center gap-6">
-            {/* Avatar Placeholder */}
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-sm font-bold">
+
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Notification Center */}
+            <NotificationCenter />
+
+
+
+            {/* User Profile Tag */}
+            <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-all">
+              <div className="w-8 h-8 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-xs font-bold shadow">
                 {user?.name?.charAt(0) || 'U'}
               </div>
-              <span className="text-sm font-medium text-gray-700 hidden md:block">
-                {user?.name}
-              </span>
-            </div>
-            
-            <button onClick={handleLogout} className="text-gray-500 hover:text-[var(--danger-color)] transition-colors">
-              <LogOut size={20} />
-            </button>
+              <div className="hidden md:block text-left">
+                <span className="text-xs font-bold text-gray-800 block leading-tight">{user?.name}</span>
+                <span className="text-[10px] text-gray-400 uppercase font-semibold">{user?.role || 'Member'}</span>
+              </div>
+            </Link>
 
-            {/* Bosch Logo */}
-            <div className="h-8 pl-6 border-l border-gray-300 flex items-center">
-              <img src="/bosch-logo.png" alt="Bosch Logo" className="h-8 object-contain" />
-            </div>
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto bg-white p-6 relative">
+        {/* Scrollable Main Area */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 bg-gray-50/70">
           <div className="max-w-7xl mx-auto">
             <Outlet />
           </div>
         </main>
       </div>
 
+      {/* Floating AI Booking & Intelligence Chatbot */}
       <ChatbotWidget />
     </div>
   );

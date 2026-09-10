@@ -1,32 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, ArrowRight, CheckCircle2, MapPin, Building2, Calendar as CalIcon, Clock, ChevronRight } from 'lucide-react';
+import { 
+  Loader2, ArrowRight, CheckCircle2, MapPin, Building2, 
+  Calendar as CalIcon, Calendar, Clock, ChevronRight, Wallet, AlertCircle,
+  Sparkles, X
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AutoLocationDetector from '../components/AutoLocationDetector';
 
-const Booking: React.FC = () => {
+export const Booking: React.FC = () => {
   const navigate = useNavigate();
   const [locations, setLocations] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [timeSlots, setTimeSlots] = useState<any[]>([]);
+  const [wallet, setWallet] = useState<any>(null);
   
   const [selectedLoc, setSelectedLoc] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
-  const [date, setDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedSlots, setSelectedSlots] = useState<string[]>(['09:00', '09:15', '09:30', '09:45']);
+
+  const getComputedTimes = () => {
+    if (selectedSlots.length === 0) return { startTime: '', endTime: '' };
+    const sorted = [...selectedSlots].sort();
+    const start = sorted[0];
+    const last = sorted[sorted.length - 1];
+    
+    const [h, m] = last.split(':').map(Number);
+    let nextH = h;
+    let nextM = m + 15;
+    if (nextM >= 60) {
+      nextH += 1;
+      nextM -= 60;
+    }
+    const end = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
+    return { startTime: start, endTime: end };
+  };
+
+  const { startTime, endTime } = getComputedTimes();
   const [seats, setSeats] = useState<any[]>([]);
   const [selectedSeat, setSelectedSeat] = useState<any | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookings, setBookings] = useState<any[]>([]);
 
   useEffect(() => {
     api.get('/locations/').then(res => setLocations(res.data)).catch(() => {});
-    api.get('/time-slots/').then(res => setTimeSlots(res.data)).catch(() => {});
+    api.get('/wallet/').then(res => setWallet(res.data)).catch(() => {});
+    api.get('/bookings/my').then(res => setBookings(res.data || [])).catch(() => {});
   }, []);
+
+  const handleLocationAutoDetected = (locId: string, branchId?: string) => {
+    setSelectedLoc(locId);
+    if (branchId) {
+      setTimeout(() => setSelectedBranch(branchId), 200);
+    }
+  };
 
   useEffect(() => {
     if (selectedLoc) {
@@ -36,27 +71,39 @@ const Booking: React.FC = () => {
       setSelectedBranch('');
       setSelectedRoom('');
       setSeats([]);
+      setSelectedSeat(null);
     }
   }, [selectedLoc]);
 
   useEffect(() => {
     if (selectedBranch) {
-      api.get('/rooms/').then(res => {
-        setRooms(res.data.filter((r: any) => r.branch_id === selectedBranch));
+      api.get('/rooms/', { params: { branch_id: selectedBranch, room_type: 'WORKSPACE' } }).then(res => {
+        setRooms(res.data);
       }).catch(() => {});
       setSelectedRoom('');
       setSeats([]);
+      setSelectedSeat(null);
     }
   }, [selectedBranch]);
 
   const fetchAvailability = async () => {
-    if (selectedRoom && date && selectedTime) {
+    if (selectedRoom && date && startTime && endTime) {
       setLoading(true);
+      setError('');
       try {
-        const res = await api.get(`/bookings/availability`, {
-          params: { room_id: selectedRoom, booking_date: date, time_slot_id: selectedTime }
+        const res = await api.get(`/bookings/availability/seat`, {
+          params: { 
+            room_id: selectedRoom, 
+            booking_date: date,
+            start_time: startTime + ':00',
+            end_time: endTime + ':00'
+          }
         });
         setSeats(res.data);
+        // Deselect if currently selected seat was booked
+        if (selectedSeat && !res.data.find((s: any) => s.seat_id === selectedSeat.seat_id && s.status === 'AVAILABLE')) {
+          setSelectedSeat(null);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -67,50 +114,66 @@ const Booking: React.FC = () => {
 
   useEffect(() => {
     fetchAvailability();
-  }, [selectedRoom, date, selectedTime]);
+  }, [selectedRoom, date, startTime, endTime]);
 
   const handleBooking = async () => {
     if (!selectedSeat) return;
-    setLoading(true);
+    setBookingLoading(true);
     setError('');
     
     try {
       const res = await api.post('/bookings/', {
+        booking_type: 'SEAT',
+        location_id: selectedLoc,
+        branch_id: selectedBranch,
+        room_id: selectedRoom,
         seat_id: selectedSeat.seat_id,
         booking_date: date,
-        time_slot_id: selectedTime
+        start_time: startTime + ':00',
+        end_time: endTime + ':00'
       });
       if (res.data.id) {
+        setShowConfirmModal(false);
         navigate('/booking/success?session_id=' + res.data.id);
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to create booking");
-      setLoading(false);
+      setBookingLoading(false);
+      setShowConfirmModal(false);
       fetchAvailability();
-      setSelectedSeat(null);
     }
   };
 
-  // Animation variants
-  const containerVars = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-  const itemVars = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } };
+  const selectedRoomObj = rooms.find(r => r.id === selectedRoom);
+  const selectedLocObj = locations.find(l => l.id === selectedLoc);
+  const selectedBranchObj = branches.find(b => b.id === selectedBranch);
+
+  const walletBalance = wallet?.balance ?? 0;
+  const seatPrice = selectedSeat ? (selectedSeat.price || 100) : 0;
+  const remainingBalance = walletBalance - seatPrice;
+  const hasSufficientCredits = remainingBalance >= 0;
 
   return (
-    <div className="w-full">
-      {/* Breadcrumb / Title */}
-      <div className="flex items-center gap-2 mb-8">
+    <div className="w-full font-['Inter']">
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-2 mb-6">
         <div className="w-6 h-6 bg-[#005691] text-white flex items-center justify-center rounded-sm">
           <ChevronRight size={16} />
         </div>
-        <h1 className="text-2xl font-bold text-gray-800">Book Workspace</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Book Individual Workspace Seat</h1>
       </div>
+
+      {/* Auto Location Detector */}
+      <AutoLocationDetector onLocationDetected={handleLocationAutoDetected} selectedLocationId={selectedLoc} />
 
       <AnimatePresence>
         {error && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mb-6">
             <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-md shadow-sm">
               <div className="flex justify-between items-center">
-                <p className="text-sm text-red-700 font-medium">{error}</p>
+                <p className="text-sm text-red-700 font-medium flex items-center gap-2">
+                  <AlertCircle size={16} /> {error}
+                </p>
                 {error.includes("Insufficient") && (
                   <Link to="/wallet" className="text-sm font-bold text-red-700 hover:underline">Add Credits &rarr;</Link>
                 )}
@@ -122,113 +185,279 @@ const Booking: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Step 1: Filters */}
-        <motion.div variants={containerVars} initial="hidden" animate="show" className="lg:col-span-4 space-y-6">
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-base font-bold text-gray-800 mb-5 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-xs">1</span> 
-              Booking Details
+              Booking Preferences
             </h2>
 
-            <div className="space-y-5">
-              <motion.div variants={itemVars}>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2"><MapPin size={16}/> Location</label>
-                <select className="w-full border border-gray-300 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/50 focus:border-[#007bc0] transition-all bg-gray-50/50" value={selectedLoc} onChange={e => setSelectedLoc(e.target.value)}>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5"><MapPin size={14}/> Office Location</label>
+                <select className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/40 focus:border-[#007bc0] transition-all bg-gray-50/50 text-sm" value={selectedLoc} onChange={e => setSelectedLoc(e.target.value)}>
                   <option value="">Select Location</option>
-                  {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  {locations.map(l => <option key={l.id} value={l.id}>{l.name} ({l.city})</option>)}
                 </select>
-              </motion.div>
+              </div>
 
-              <motion.div variants={itemVars}>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2"><Building2 size={16}/> Branch</label>
-                <select className="w-full border border-gray-300 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/50 focus:border-[#007bc0] transition-all bg-gray-50/50 disabled:opacity-50" value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} disabled={!selectedLoc}>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5"><Building2 size={14}/> Branch</label>
+                <select className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/40 focus:border-[#007bc0] transition-all bg-gray-50/50 text-sm disabled:opacity-50" value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} disabled={!selectedLoc}>
                   <option value="">Select Branch</option>
                   {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
-              </motion.div>
+              </div>
 
-              <motion.div variants={itemVars}>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2"><Building2 size={16}/> Room</label>
-                <select className="w-full border border-gray-300 rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/50 focus:border-[#007bc0] transition-all bg-gray-50/50 disabled:opacity-50" value={selectedRoom} onChange={e => setSelectedRoom(e.target.value)} disabled={!selectedBranch}>
-                  <option value="">Select Room</option>
-                  {rooms.map(r => <option key={r.id} value={r.id}>{r.name} (Cap: {r.capacity})</option>)}
-                </select>
-              </motion.div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5"><Building2 size={14}/> Room Zone</label>
+                {!selectedBranch ? (
+                  <div className="text-xs text-gray-400 italic p-3 bg-gray-50 rounded-xl border border-gray-100">Select a branch first to view available room zones.</div>
+                ) : rooms.length === 0 ? (
+                  <div className="text-xs text-gray-400 italic p-3 bg-gray-50 rounded-xl border border-gray-100">No rooms available in this branch.</div>
+                ) : (
+                  <div className="flex gap-2 overflow-x-auto pb-2 snap-x hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    {rooms.map(r => {
+                      const isSelected = selectedRoom === r.id;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setSelectedRoom(r.id)}
+                          className={`min-w-[140px] max-w-[180px] shrink-0 p-3 rounded-xl border text-left transition-all snap-start ${
+                            isSelected 
+                              ? 'bg-blue-50 border-[#007bc0] ring-2 ring-[#007bc0]/30 shadow-sm' 
+                              : 'bg-gray-50/70 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs font-bold truncate pr-2 ${isSelected ? 'text-[#007bc0]' : 'text-gray-700'}`}>{r.name}</span>
+                            {isSelected && <CheckCircle2 size={14} className="text-[#007bc0] shrink-0" />}
+                          </div>
+                          <div className="text-[10px] font-semibold text-gray-500 mb-2">Cap: {r.capacity}</div>
+                          {r.facilities && r.facilities.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {r.facilities.slice(0, 2).map((f: any) => (
+                                <span key={f.id} className="text-[9px] font-bold px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-600 truncate max-w-[100px]">
+                                  {f.name}
+                                </span>
+                              ))}
+                              {r.facilities.length > 2 && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-gray-200/80 rounded text-gray-500 shrink-0">
+                                  +{r.facilities.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <motion.div variants={itemVars}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2"><CalIcon size={16}/> Date</label>
-                  <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/50 focus:border-[#007bc0] transition-all bg-gray-50/50 text-sm" value={date} onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
-                </motion.div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5"><CalIcon size={14}/> Booking Date</label>
+                <input type="date" className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/40 focus:border-[#007bc0] transition-all bg-gray-50/50 text-sm font-semibold" value={date} onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+              </div>
 
-                <motion.div variants={itemVars}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-2"><Clock size={16}/> Time</label>
-                  <select className="w-full border border-gray-300 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#007bc0]/50 focus:border-[#007bc0] transition-all bg-gray-50/50 text-sm" value={selectedTime} onChange={e => setSelectedTime(e.target.value)}>
-                    <option value="">Time</option>
-                    {timeSlots.map(t => <option key={t.id} value={t.id}>{t.start_time.substring(0,5)}-{t.end_time.substring(0,5)}</option>)}
-                  </select>
-                </motion.div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-semibold text-gray-600 flex items-center gap-1.5">
+                    <Clock size={14} className="text-[#007bc0]" /> Select Time Slots (15-min intervals)
+                  </label>
+                  {selectedSlots.length > 0 && (
+                    <span className="text-[10px] font-bold text-[#007bc0] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                      {startTime} - {endTime}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-48 overflow-y-auto pr-1 hide-scrollbar">
+                  {Array.from({ length: 45 }).map((_, i) => { // 8:00 to 19:00
+                    const totalMins = 8 * 60 + i * 15;
+                    const h = Math.floor(totalMins / 60);
+                    const m = totalMins % 60;
+                    const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+                    
+                    const isSelected = selectedSlots.includes(timeStr);
+                    
+                    const toggleSlot = () => {
+                      let newSlots = [...selectedSlots];
+                      if (isSelected) {
+                        newSlots = newSlots.filter(s => s !== timeStr);
+                      } else {
+                        newSlots.push(timeStr);
+                      }
+                      
+                      if (newSlots.length > 1) {
+                        newSlots.sort();
+                        const first = newSlots[0];
+                        const last = newSlots[newSlots.length - 1];
+                        const filled = [];
+                        let current = first;
+                        while (current <= last) {
+                          filled.push(current);
+                          const [ch, cm] = current.split(':').map(Number);
+                          let nextH = ch;
+                          let nextM = cm + 15;
+                          if (nextM >= 60) { nextH++; nextM -= 60; }
+                          current = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
+                        }
+                        newSlots = filled;
+                      }
+                      setSelectedSlots(newSlots);
+                    };
+
+                    return (
+                      <button
+                        key={timeStr}
+                        type="button"
+                        onClick={toggleSlot}
+                        className={`py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
+                          isSelected
+                            ? 'bg-[#007bc0] text-white border-[#005a8c] shadow-sm scale-105'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-[#007bc0]/40 hover:bg-blue-50/50'
+                        }`}
+                      >
+                        {timeStr}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
-        </motion.div>
 
-        {/* Step 2: Seat Map */}
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="lg:col-span-8 flex flex-col h-full">
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex-1 flex flex-col relative overflow-hidden">
+          {/* My Bookings Preview */}
+          <div className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#007bc0]"></div>
+                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                  My Bookings
+                </h2>
+              </div>
+              <Link to="/my-bookings" className="text-xs font-black text-[#007bc0] hover:underline flex items-center gap-1">
+                View All →
+              </Link>
+            </div>
+
+            {bookings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-center">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#007bc0] flex items-center justify-center mb-2">
+                  <Calendar size={18} />
+                </div>
+                <p className="text-xs font-bold text-gray-600">No bookings yet</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Your reservations will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {bookings.slice(0, 5).map((b) => {
+                  const isUpcoming = b.status === 'CONFIRMED' && new Date(b.booking_date) >= new Date(new Date().setHours(0, 0, 0, 0));
+                  return (
+                    <div
+                      key={b.id}
+                      onClick={() => navigate('/my-bookings')}
+                      className="flex items-center justify-between p-2.5 bg-gray-50 hover:bg-blue-50/50 rounded-xl border border-gray-100 hover:border-blue-200 transition cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                          isUpcoming ? 'bg-emerald-50 text-emerald-600' : b.status === 'CANCELLED' ? 'bg-red-50 text-red-400' : 'bg-gray-100 text-gray-400'
+                        }`}>
+                          <Calendar size={13} />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-bold text-gray-900 group-hover:text-[#007bc0] transition leading-tight">
+                            {b.seat_number ? `Desk ${b.seat_number}` : b.room_name || b.booking_type}
+                          </p>
+                          <p className="text-[10px] text-gray-400">{b.branch_name || 'Main Campus'} · {b.booking_date}</p>
+                        </div>
+                      </div>
+                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase shrink-0 ${
+                        isUpcoming ? 'bg-emerald-100 text-emerald-700' : b.status === 'CANCELLED' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {isUpcoming ? 'Upcoming' : b.status === 'CANCELLED' ? 'Cancelled' : 'Done'}
+                      </span>
+                    </div>
+                  );
+                })}
+                {bookings.length > 5 && (
+                  <Link
+                    to="/my-bookings"
+                    className="block w-full py-1.5 bg-gray-50 hover:bg-gray-100 text-[#007bc0] text-center text-[11px] font-black rounded-xl transition mt-1"
+                  >
+                    View All {bookings.length} Bookings →
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Step 2: Interactive Seat Map */}
+        <div className="lg:col-span-8 flex flex-col h-full">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex-1 flex flex-col relative overflow-hidden min-h-[420px]">
             
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
+              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-xs">2</span> 
-                Select Seat
+                Select Workspace Seat
               </h2>
               
               {seats.length > 0 && (
-                <div className="flex gap-4 text-xs font-medium text-gray-600 bg-gray-50 px-4 py-2 rounded-full border border-gray-200">
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-100 border border-green-500"></div> Available</div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-100 border border-red-500"></div> Booked</div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#007bc0] border border-[#005691] shadow-[0_0_8px_rgba(0,123,192,0.4)]"></div> Selected</div>
+                <div className="flex flex-wrap gap-4 text-xs font-semibold text-gray-600 bg-gray-50 px-4 py-2 rounded-full border border-gray-200">
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-emerald-100 border border-emerald-500"></div> Available (Green)</div>
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-red-100 border border-red-500"></div> Booked (Red)</div>
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-[#007bc0] border border-[#005691]"></div> Selected (Blue)</div>
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-gray-200 border border-gray-400"></div> Disabled (Gray)</div>
                 </div>
               )}
             </div>
             
             {!selectedRoom || !date || !selectedTime ? (
-              <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50 text-gray-400">
-                <MapPin size={48} className="mb-4 opacity-20" />
-                <p>Complete booking details to view the floor plan</p>
+              <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50 text-gray-400 p-8 text-center">
+                <MapPin size={48} className="mb-3 opacity-20 text-[#007bc0]" />
+                <h4 className="font-semibold text-gray-700 text-sm">Interactive Seat Plan</h4>
+                <p className="text-xs text-gray-400 mt-1 max-w-sm">Please select a location, branch, room, date, and valid time range to load real-time seat availability.</p>
               </div>
             ) : loading && seats.length === 0 ? (
               <div className="flex-grow flex items-center justify-center">
                 <Loader2 className="animate-spin text-[#007bc0]" size={40} />
               </div>
             ) : (
-              <div className="flex-grow border border-gray-200 rounded-xl p-8 bg-gray-50 flex items-center justify-center relative shadow-inner">
-                {/* Decorative Floor Plan Lines */}
-                <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+              <div className="flex-grow border border-gray-200 rounded-xl p-8 bg-gray-50/70 flex flex-col items-center justify-center relative shadow-inner">
+                {/* Visual Desk Layout Screen Bar */}
+                <div className="w-full max-w-md bg-white border border-gray-200 py-1.5 rounded-lg text-center text-xs font-bold text-gray-400 tracking-widest uppercase mb-8 shadow-sm">
+                  Focus Zone Front / Window View
+                </div>
                 
-                <div className="flex flex-wrap gap-4 justify-center relative z-10 max-w-2xl">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4 justify-center relative z-10 max-w-2xl">
                   {seats.map(seat => {
                     const isBooked = seat.status === 'BOOKED';
+                    const isDisabled = seat.status === 'DISABLED';
                     const isSelected = selectedSeat?.seat_id === seat.seat_id;
                     
                     return (
                       <motion.div 
                         key={seat.seat_id} 
-                        whileHover={!isBooked ? { scale: 1.1, y: -2 } : {}}
-                        whileTap={!isBooked ? { scale: 0.95 } : {}}
+                        whileHover={!isBooked && !isDisabled ? { scale: 1.08, y: -2 } : {}}
+                        whileTap={!isBooked && !isDisabled ? { scale: 0.95 } : {}}
                         className={`
-                          w-12 h-12 rounded-lg flex items-center justify-center font-bold text-sm cursor-pointer transition-colors relative shadow-sm
-                          ${isBooked ? 'bg-red-50 text-red-400 border border-red-200 cursor-not-allowed opacity-60' : 
-                            isSelected ? 'bg-[#007bc0] text-white border border-[#005691] shadow-[0_4px_12px_rgba(0,123,192,0.3)] z-20' : 
-                            'bg-white text-green-600 border border-green-200 hover:border-green-400 hover:shadow-md'}
+                          w-14 h-14 rounded-xl flex flex-col items-center justify-center font-bold text-xs cursor-pointer transition-all relative shadow-sm
+                          ${isBooked ? 'bg-red-50 text-red-500 border border-red-300 cursor-not-allowed opacity-75' : 
+                            isDisabled ? 'bg-gray-100 text-gray-400 border border-gray-300 cursor-not-allowed' :
+                            isSelected ? 'bg-[#007bc0] text-white border border-[#005691] shadow-lg ring-2 ring-[#007bc0]/50 z-20' : 
+                            'bg-white text-emerald-700 border border-emerald-300 hover:border-emerald-500 hover:shadow-md'}
                         `}
-                        title={isBooked ? `Booked by: ${seat.booked_by}` : 'Available'}
+                        title={isBooked ? `Booked` : isDisabled ? 'Disabled' : `Available - Seat ${seat.seat_number}`}
                         onClick={() => {
-                          if (!isBooked) setSelectedSeat(isSelected ? null : seat);
+                          if (!isBooked && !isDisabled) setSelectedSeat(isSelected ? null : seat);
                         }}
                       >
-                        {/* Desk Top Line */}
-                        <div className={`absolute -top-1 left-1/4 right-1/4 h-1.5 rounded-t-sm opacity-50 ${isBooked ? 'bg-red-300' : isSelected ? 'bg-white' : 'bg-green-300'}`}></div>
-                        {seat.seat_number}
+                        <div className={`w-6 h-1 rounded-full mb-1 opacity-60 ${isBooked ? 'bg-red-400' : isSelected ? 'bg-white' : 'bg-emerald-500'}`}></div>
+                        <span>{seat.seat_number}</span>
+                        <span className="text-[10px] font-normal opacity-80">₹{seat.price || 100}</span>
                       </motion.div>
                     );
                   })}
@@ -236,38 +465,135 @@ const Booking: React.FC = () => {
               </div>
             )}
             
-            {/* Checkout Action Bar */}
+            {/* Action Bar */}
             <AnimatePresence>
               {selectedSeat && (
                 <motion.div 
-                  initial={{ y: 50, opacity: 0 }} 
+                  initial={{ y: 30, opacity: 0 }} 
                   animate={{ y: 0, opacity: 1 }} 
-                  exit={{ y: 50, opacity: 0 }}
-                  className="absolute bottom-6 left-6 right-6 bg-white border border-[#007bc0]/30 shadow-[0_8px_30px_rgba(0,123,192,0.15)] rounded-xl p-4 flex justify-between items-center"
+                  exit={{ y: 30, opacity: 0 }}
+                  className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-[#007bc0]/10 rounded-full flex items-center justify-center text-[#007bc0]">
-                      <CheckCircle2 size={24} />
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-[#007bc0] text-white rounded-full flex items-center justify-center font-bold text-sm shadow">
+                      {selectedSeat.seat_number}
                     </div>
                     <div>
-                      <h4 className="font-bold text-gray-800">Seat {selectedSeat.seat_number}</h4>
-                      <p className="text-xs text-gray-500 font-medium">Ready for checkout</p>
+                      <h4 className="font-bold text-gray-800 text-sm">Seat {selectedSeat.seat_number} Selected</h4>
+                      <p className="text-xs text-gray-500">Price: ₹{selectedSeat.price || 100} &bull; Date: {date} &bull; Time: {startTime} - {endTime}</p>
                     </div>
                   </div>
                   <button 
-                    className="bg-[#007bc0] hover:bg-[#005691] text-white px-6 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-70" 
-                    onClick={handleBooking}
-                    disabled={loading}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-[#007bc0] hover:bg-[#005691] text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2" 
+                    onClick={() => setShowConfirmModal(true)}
                   >
-                    {loading ? <Loader2 className="animate-spin" size={18} /> : <><span className="hidden sm:inline">Confirm Booking</span> <ArrowRight size={18} /></>}
+                    <span>Review & Confirm</span>
+                    <ArrowRight size={16} />
                   </button>
                 </motion.div>
               )}
             </AnimatePresence>
 
           </div>
-        </motion.div>
+        </div>
       </div>
+
+      {/* Booking Review & Credit Confirmation Modal */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 relative"
+            >
+              <button 
+                onClick={() => setShowConfirmModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X size={20} />
+              </button>
+
+              <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+                <Sparkles size={18} className="text-[#007bc0]" /> Confirm Workspace Booking
+              </h3>
+              <p className="text-xs text-gray-500 mb-5">Review reservation summary and pay with prepaid credits.</p>
+
+              {/* Order Breakdown */}
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-2.5 text-xs mb-5">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Location & Branch:</span>
+                  <span className="font-bold text-gray-800">{selectedLocObj?.name} &bull; {selectedBranchObj?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Zone & Seat:</span>
+                  <span className="font-bold text-gray-800">{selectedRoomObj?.name} &bull; Seat {selectedSeat?.seat_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Date & Time:</span>
+                  <span className="font-bold text-gray-800">{date} &bull; {startTime} to {endTime}</span>
+                </div>
+                <div className="pt-2 border-t border-gray-200 flex justify-between font-bold text-sm text-gray-800">
+                  <span>Seat Price:</span>
+                  <span className="text-[#007bc0]">₹{seatPrice.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Financial Balance Summary */}
+              <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-4 space-y-2 text-xs mb-6">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Current Wallet Balance:</span>
+                  <span className="font-semibold text-gray-800">₹{walletBalance.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Credits Deducted:</span>
+                  <span className="font-semibold text-red-600">-₹{seatPrice.toFixed(2)}</span>
+                </div>
+                <div className="pt-2 border-t border-blue-200/80 flex justify-between font-extrabold text-xs">
+                  <span className="text-gray-700">Balance After Booking:</span>
+                  <span className={hasSufficientCredits ? "text-emerald-700 font-bold" : "text-red-600 font-bold"}>
+                    ₹{remainingBalance.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {!hasSufficientCredits ? (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs text-amber-800 flex items-center gap-2">
+                    <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                    <span>Insufficient credits. Please add ₹{Math.abs(remainingBalance).toFixed(2)} or more to proceed.</span>
+                  </div>
+                  <Link
+                    to="/wallet"
+                    className="w-full py-2.5 bg-[#007bc0] hover:bg-[#005691] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 shadow"
+                  >
+                    <Wallet size={16} /> Add Credits via Stripe
+                  </Link>
+                </div>
+              ) : (
+                <button
+                  onClick={handleBooking}
+                  disabled={bookingLoading}
+                  className="w-full py-3 bg-[#007bc0] hover:bg-[#005691] text-white font-bold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {bookingLoading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Confirming & Deducting Credits...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={18} />
+                      <span>Confirm Booking Using Credits</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -6,6 +6,9 @@ interface User {
   name: string;
   email: string;
   role: 'ADMIN' | 'USER';
+  status?: string;
+  auth_provider?: string;
+  created_at?: string;
 }
 
 interface AuthContextType {

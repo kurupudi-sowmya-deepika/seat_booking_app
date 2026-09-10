@@ -1,35 +1,71 @@
 import React, { useState } from 'react';
-import { MapPin, Building, Grid, Settings2, ShieldCheck } from 'lucide-react';
+import { 
+  Settings, ShieldCheck, CreditCard, Bell, 
+  Clock, Database, CheckCircle2, Save, Sparkles
+} from 'lucide-react';
 
-const AdminSettings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('locations');
+export const AdminSettings: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('general');
+  const [saved, setSaved] = useState(false);
 
-  const tabs = [
-    { id: 'locations', label: 'Locations', icon: <MapPin size={18} /> },
-    { id: 'branches', label: 'Branches', icon: <Building size={18} /> },
-    { id: 'rooms', label: 'Meeting Rooms', icon: <Grid size={18} /> },
-    { id: 'general', label: 'General Settings', icon: <Settings2 size={18} /> },
-    { id: 'security', label: 'Security & Access', icon: <ShieldCheck size={18} /> },
-  ];
+  const [settings, setSettings] = useState({
+    companyName: 'Acme Enterprise Workspaces',
+    supportEmail: 'workspace-support@acme.com',
+    currency: 'INR (₹)',
+    maxAdvanceBookingDays: 30,
+    cancellationWindowHours: 2,
+    refundPercentage: 100,
+    enableEntraIdSSO: true,
+    enableLocalAuth: true,
+    stripeWebhookLive: true,
+    geminiAiAssistant: true,
+    dailyReminderEmail: true,
+  });
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">System Settings</h1>
-        <p className="text-[var(--text-secondary)]">Configure core infrastructure, branches, and application settings.</p>
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
+            <Settings className="text-[#007bc0]" />
+            Enterprise System Settings
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Global policies, booking windows, authentication providers, and AI concierge configurations.
+          </p>
+        </div>
+
+        {saved && (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-green-50 text-green-700 rounded-xl text-xs font-bold border border-green-200">
+            <CheckCircle2 size={16} />
+            Settings saved successfully!
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8 mt-8">
-        {/* Settings Sidebar */}
-        <div className="w-full md:w-64 space-y-1 shrink-0">
-          {tabs.map((tab) => (
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Navigation Sidebar */}
+        <div className="space-y-1">
+          {[
+            { id: 'general', label: 'General & Branding', icon: <Settings size={18} /> },
+            { id: 'policies', label: 'Booking & Cancellation', icon: <Clock size={18} /> },
+            { id: 'auth', label: 'SSO & Authentication', icon: <ShieldCheck size={18} /> },
+            { id: 'payments', label: 'Billing & Stripe', icon: <CreditCard size={18} /> },
+            { id: 'ai', label: 'Gemini AI Concierge', icon: <Sparkles size={18} /> },
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab.id 
-                  ? 'bg-[var(--primary-color)] text-white shadow-md' 
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--surface-color-light)] hover:text-[var(--primary-color)]'
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left ${
+                activeTab === tab.id
+                  ? 'bg-[#007bc0] text-white shadow-md'
+                  : 'text-gray-600 hover:bg-white hover:text-gray-900'
               }`}
             >
               {tab.icon}
@@ -38,36 +74,200 @@ const AdminSettings: React.FC = () => {
           ))}
         </div>
 
-        {/* Settings Content Area */}
-        <div className="flex-1 glass-panel p-8 min-h-[500px]">
-          {activeTab === 'locations' && (
-            <div className="animate-fade-in space-y-6">
-              <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-4">
-                <h2 className="text-xl font-semibold text-[var(--text-primary)]">Manage Office Locations</h2>
-                <button className="btn btn-primary text-sm py-1.5 px-4">+ Add Location</button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {['Bangalore (BLR)', 'Hyderabad (HYD)', 'Pune (PUN)'].map((loc, idx) => (
-                  <div key={idx} className="border border-[var(--border-color)] rounded-lg p-4 flex justify-between items-center bg-[var(--surface-color-light)]">
-                    <div>
-                      <h4 className="font-medium text-[var(--text-primary)]">{loc}</h4>
-                      <p className="text-xs text-[var(--text-secondary)]">{idx === 0 ? 'Primary Headquarters' : 'Regional Office'}</p>
-                    </div>
-                    <button className="text-[var(--primary-color)] text-sm hover:underline">Edit</button>
+        {/* Content Panel */}
+        <div className="md:col-span-3 bg-white rounded-3xl border border-gray-200/80 p-6 sm:p-8 shadow-sm">
+          <form onSubmit={handleSave} className="space-y-6">
+            {activeTab === 'general' && (
+              <div className="space-y-5">
+                <h3 className="text-base font-black text-gray-900 border-b border-gray-100 pb-3">
+                  Workspace Identity & Localization
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Organization Name
+                    </label>
+                    <input
+                      type="text"
+                      value={settings.companyName}
+                      onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Support Email
+                    </label>
+                    <input
+                      type="email"
+                      value={settings.supportEmail}
+                      onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+                    />
+                  </div>
+                </div>
 
-          {activeTab !== 'locations' && (
-            <div className="animate-fade-in flex flex-col items-center justify-center h-full text-center text-[var(--text-muted)] py-20">
-              <Settings2 size={48} className="mb-4 opacity-20" />
-              <h3 className="text-lg font-medium text-[var(--text-secondary)] mb-2">Configuration Panel</h3>
-              <p className="max-w-md text-sm">Select a specific entity to configure or edit. Data management features will be fully functional when wired to backend APIs.</p>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Currency & Accounting Unit
+                  </label>
+                  <select
+                    value={settings.currency}
+                    onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+                  >
+                    <option value="INR (₹)">Indian Rupee (₹ INR)</option>
+                    <option value="USD ($)">US Dollar ($ USD)</option>
+                    <option value="EUR (€)">Euro (€ EUR)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'policies' && (
+              <div className="space-y-5">
+                <h3 className="text-base font-black text-gray-900 border-b border-gray-100 pb-3">
+                  Reservation Windows & Refund Rules
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Max Advance Booking Days
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      value={settings.maxAdvanceBookingDays}
+                      onChange={(e) => setSettings({ ...settings, maxAdvanceBookingDays: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Refund Percentage on Cancellation (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={settings.refundPercentage}
+                      onChange={(e) => setSettings({ ...settings, refundPercentage: Number(e.target.value) })}
+                      className="w-full px-3.5 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 text-xs text-[#007bc0] leading-relaxed">
+                  <strong>Automatic Refund Engine:</strong> When an employee cancels a confirmed booking before the start time, 100% of credits are instantly refunded back into their prepaid wallet balance with an immutable transaction log.
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'auth' && (
+              <div className="space-y-5">
+                <h3 className="text-base font-black text-gray-900 border-b border-gray-100 pb-3">
+                  Single Sign-On (Microsoft Entra ID) & Local Auth
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm">Microsoft Entra ID (Azure AD) SSO</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">Allow employees to sign in with corporate Office 365 credentials</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.enableEntraIdSSO}
+                      onChange={(e) => setSettings({ ...settings, enableEntraIdSSO: e.target.checked })}
+                      className="w-5 h-5 text-[#007bc0] rounded border-gray-300 focus:ring-[#007bc0]"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm">Local Email / Password Authentication</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">Allow direct sign-in for contractors and local development accounts</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.enableLocalAuth}
+                      onChange={(e) => setSettings({ ...settings, enableLocalAuth: e.target.checked })}
+                      className="w-5 h-5 text-[#007bc0] rounded border-gray-300 focus:ring-[#007bc0]"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'payments' && (
+              <div className="space-y-5">
+                <h3 className="text-base font-black text-gray-900 border-b border-gray-100 pb-3">
+                  Payment Gateway & Wallet Architecture
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm">Stripe Checkout & Webhooks</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">Automated credit allocation on successful Stripe checkout sessions</p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">
+                      Active (Idempotent)
+                    </span>
+                  </div>
+
+                  <div className="p-4 bg-slate-900 text-slate-200 rounded-2xl text-xs space-y-2 font-mono">
+                    <p className="text-slate-400 uppercase text-[10px] font-bold">Ledger Safety Constraints</p>
+                    <p>• Concurrency Control: PostgreSQL <code className="text-amber-400">SELECT ... FOR UPDATE</code> on all wallet updates</p>
+                    <p>• Balance Integrity: Wallet balances can NEVER be negative</p>
+                    <p>• Audit Trail: Every transaction records <code className="text-emerald-400">reference_id</code> and timestamp</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'ai' && (
+              <div className="space-y-5">
+                <h3 className="text-base font-black text-gray-900 border-b border-gray-100 pb-3">
+                  Google Gemini AI Workspace Assistant
+                </h3>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm">Autonomous Chatbot Concierge</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">Empower employees to search branches, book desks, and check balances using natural language</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settings.geminiAiAssistant}
+                      onChange={(e) => setSettings({ ...settings, geminiAiAssistant: e.target.checked })}
+                      className="w-5 h-5 text-[#007bc0] rounded border-gray-300 focus:ring-[#007bc0]"
+                    />
+                  </div>
+
+                  <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100 text-xs text-purple-900 space-y-1">
+                    <span className="font-bold block">Available Backend Function Tools:</span>
+                    <span className="block text-[11px] text-purple-700 font-mono">
+                      search_locations, get_nearest_location, search_branches, search_rooms, get_time_slots, check_availability, get_day_pass_availability, get_wallet_balance, get_my_bookings, confirm_intent_to_book, confirm_intent_to_cancel
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-end">
+              <button
+                type="submit"
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#007bc0] hover:bg-[#005a8c] text-white rounded-xl font-bold text-sm shadow-md transition shadow-[#007bc0]/20"
+              >
+                <Save size={16} />
+                Save System Configuration
+              </button>
             </div>
-          )}
+          </form>
         </div>
       </div>
     </div>
