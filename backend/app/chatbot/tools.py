@@ -162,8 +162,10 @@ class ChatbotTools:
             "is_24x7": b.is_24x7
         } for b in branches]
 
-    async def search_rooms(self, branch_name: str, room_type: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Search for available rooms in a specific branch, optionally filtered by room_type (WORKSPACE, MEETING_ROOM, CONFERENCE_ROOM)."""
+    async def search_rooms(self, branch_name: str, room_type: Optional[str] = None, floor: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Search for available rooms/workspace zones in a specific branch, optionally
+        filtered by room_type (WORKSPACE, MEETING_ROOM, CONFERENCE_ROOM) and/or floor
+        number (e.g. a user asking for "a seat on the 3rd floor")."""
         branch = await self._find_branch(branch_name)
         if not branch:
             return [{"error": f"Branch {branch_name} not found."}]
@@ -171,15 +173,22 @@ class ChatbotTools:
         query = select(Room).options(selectinload(Room.facilities)).where(Room.branch_id == branch.id, Room.status == "ACTIVE")
         if room_type:
             query = query.where(Room.room_type == room_type)
+        if floor is not None:
+            query = query.where(Room.floor == floor)
         r_result = await self.db.execute(query)
         rooms = r_result.scalars().all()
         return [{
-            "id": str(r.id), 
-            "name": r.name, 
+            "id": str(r.id),
+            "name": r.name,
             "room_type": r.room_type,
-            "capacity": r.capacity, 
+            "capacity": r.capacity,
             "price_per_hour": float(r.price_per_hour or 0),
-            "facilities": [f.name for f in r.facilities]
+            "floor": r.floor,
+            "facilities": [f.name for f in r.facilities],
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(branch.id),
+            "location_id": str(branch.location_id)
         } for r in rooms]
 
     async def get_time_slots(self) -> List[Dict[str, Any]]:
@@ -195,6 +204,8 @@ class ChatbotTools:
         room = await self._find_room_by_name(room_name)
         if not room:
             return {"error": f"Room {room_name} not found."}
+
+        branch = (await self.db.execute(select(Branch).where(Branch.id == room.branch_id))).scalar_one_or_none()
 
         t_result = await self.db.execute(select(TimeSlot))
         slots = t_result.scalars().all()
@@ -238,7 +249,11 @@ class ChatbotTools:
             "time_slot_id": str(target_slot.id),
             "time_slot": f"{str(target_slot.start_time)[:5]} - {str(target_slot.end_time)[:5]}",
             "date": booking_date,
-            "available_seats": available
+            "available_seats": available,
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(room.branch_id),
+            "location_id": str(branch.location_id) if branch else None
         }
 
     async def get_day_pass_availability(self, branch_name: str, booking_date: str) -> Dict[str, Any]:
@@ -272,7 +287,11 @@ class ChatbotTools:
             "date": booking_date,
             "price": float(dp.price),
             "available_capacity": remaining,
-            "status": "AVAILABLE" if remaining > 0 else "SOLD_OUT"
+            "status": "AVAILABLE" if remaining > 0 else "SOLD_OUT",
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(branch.id),
+            "location_id": str(branch.location_id)
         }
 
     async def _find_available_rooms(
@@ -375,7 +394,11 @@ class ChatbotTools:
             "end_time": end_time_str,
             "requested_capacity": capacity,
             "requested_amenities": amenities or [],
-            "available_rooms": available
+            "available_rooms": available,
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(branch.id),
+            "location_id": str(branch.location_id)
         }
 
     async def get_room_details(self, room_id: str) -> Dict[str, Any]:
@@ -385,6 +408,7 @@ class ChatbotTools:
         )).scalar_one_or_none()
         if not room:
             return {"error": f"Room with id {room_id} not found."}
+        branch = (await self.db.execute(select(Branch).where(Branch.id == room.branch_id))).scalar_one_or_none()
         return {
             "room_id": str(room.id),
             "name": room.name,
@@ -393,7 +417,11 @@ class ChatbotTools:
             "floor": room.floor,
             "price_per_hour": float(room.price_per_hour or 0),
             "facilities": [f.name for f in room.facilities] if room.facilities else [],
-            "status": room.status
+            "status": room.status,
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(room.branch_id),
+            "location_id": str(branch.location_id) if branch else None
         }
 
     # ---------- AI Intelligence Tools ----------
@@ -421,6 +449,7 @@ class ChatbotTools:
                 "seat_id": str(seat.id),
                 "seat_number": seat.seat_number,
                 "seat_type": seat.seat_type,
+                "room_id": str(room.id),
                 "room_name": room.name,
                 "price": float(seat.price),
                 "branch": branch.name
@@ -436,7 +465,11 @@ class ChatbotTools:
             "preference": preference,
             "date": booking_date,
             "top_recommendations": recommendations,
-            "ai_reasoning": f"Found {len(matched)} exact matching desks for '{preference}' preference in {branch.name}."
+            "ai_reasoning": f"Found {len(matched)} exact matching desks for '{preference}' preference in {branch.name}.",
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(branch.id),
+            "location_id": str(branch.location_id)
         }
 
     async def recommend_room(self, branch_name: str, team_size: int, required_amenity: Optional[str] = None) -> Dict[str, Any]:
@@ -474,7 +507,11 @@ class ChatbotTools:
             "branch": branch.name,
             "team_size": team_size,
             "recommended_rooms": recs[:3],
-            "ai_recommendation": f"For a group of {team_size}, we suggest {recs[0]['name'] if recs else 'our conference suite'} with optimal audio-visual equipment."
+            "ai_recommendation": f"For a group of {team_size}, we suggest {recs[0]['name'] if recs else 'our conference suite'} with optimal audio-visual equipment.",
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(branch.id),
+            "location_id": str(branch.location_id)
         }
 
     async def resolve_booking_conflict(
@@ -548,7 +585,11 @@ class ChatbotTools:
             "larger_capacity_rooms_same_slot": larger_capacity_rooms[:3],
             "rooms_without_requested_amenity_same_slot": rooms_without_amenity[:3],
             "next_day_alternative": {"date": next_day.isoformat(), "rooms": next_day_rooms[:3]} if next_day_rooms else None,
-            "has_alternatives": bool(nearby_time_slots or larger_capacity_rooms or rooms_without_amenity or next_day_rooms)
+            "has_alternatives": bool(nearby_time_slots or larger_capacity_rooms or rooms_without_amenity or next_day_rooms),
+            # Real IDs (not names) so confirm_intent_to_book always has valid
+            # location_id/branch_id to work with instead of guessing from names.
+            "branch_id": str(branch.id),
+            "location_id": str(branch.location_id)
         }
 
     async def get_wallet_balance(self) -> Dict[str, Any]:
@@ -714,6 +755,12 @@ class ChatbotTools:
         }
 
     async def confirm_intent_to_cancel(self, booking_id: str) -> Dict[str, Any]:
+        """
+        Prepare a cancellation confirmation card for one of the current user's own
+        bookings (by booking ID, from get_my_bookings/get_booking_details). Does not
+        cancel anything itself - the booking is only cancelled after the user
+        confirms in the UI, which also triggers the wallet refund.
+        """
         return {
             "action": "REQUIRE_CANCEL_CONFIRMATION",
             "payload": {
@@ -792,6 +839,11 @@ class ChatbotTools:
         }
 
     async def intent_add_credits(self, amount: float) -> Dict[str, Any]:
+        """
+        Prepare a wallet top-up confirmation card for the given INR amount. Does not
+        charge anything itself - the user is redirected to Stripe Checkout to
+        complete the top-up after confirming in the UI.
+        """
         return {
             "action": "REQUIRE_TOPUP_CONFIRMATION",
             "payload": {

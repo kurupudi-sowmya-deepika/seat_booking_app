@@ -33,7 +33,9 @@ async def send_message(
         )
         return response
     except openai.RateLimitError as e:
-        logger.warning("OpenAI rate limit hit for user %s: %s", current_user.id, e)
+        # OpenRouter is reached via langchain_openai's ChatOpenAI (an OpenAI-API-compatible
+        # client), so transport-level errors still surface as openai.* exception types.
+        logger.warning("OpenRouter rate limit hit for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="The AI assistant is receiving too many requests right now. Please wait a moment and try again.",
@@ -41,21 +43,21 @@ async def send_message(
         )
     except openai.AuthenticationError as e:
         # Never surface the key or the raw SDK error - just that the deployment is misconfigured.
-        logger.error("OpenAI authentication failed (check OPENAI_API_KEY) for user %s: %s", current_user.id, e)
+        logger.error("OpenRouter authentication failed (check OPENROUTER_API_KEY) for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="The AI assistant is temporarily unavailable. Please try again shortly, or use the booking pages directly.",
             suggested_actions=_FALLBACK_ACTIONS
         )
     except (openai.APITimeoutError, openai.APIConnectionError) as e:
-        logger.warning("OpenAI request timed out/unreachable for user %s: %s", current_user.id, e)
+        logger.warning("OpenRouter request timed out/unreachable for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="I'm unable to connect to the AI assistant right now. Please try again in a moment.",
             suggested_actions=_FALLBACK_ACTIONS
         )
     except openai.APIError as e:
-        logger.warning("OpenAI API error for user %s: %s", current_user.id, e)
+        logger.warning("OpenRouter API error for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="The AI assistant is temporarily unavailable. Please try again shortly, or use the booking pages directly.",

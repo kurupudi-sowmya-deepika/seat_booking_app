@@ -2,24 +2,24 @@ import logging
 from typing import Any, Dict, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from langchain_core.messages import BaseMessage
 
 from app.models.user import User
 from app.chatbot.tools import ChatbotTools
 from app.chatbot.schemas import ChatResponse
-from app.chatbot.openai_service import (
-    OpenAIConfigError,
-    build_tool_schema,
-    get_client,
+from app.chatbot.langchain_service import (
+    OpenRouterConfigError,
+    get_model,
+    make_safe_tool,
     run_agentic_chat,
 )
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 # In-memory storage for conversation history (for demonstration purposes).
 # In production, this should be stored in Redis or PostgreSQL - keyed the same way
 # (via conversation_key) so callers don't need to change when that swap happens.
-conversations: Dict[str, List[Any]] = {}
+conversations: Dict[str, List[BaseMessage]] = {}
 
 def conversation_key(user_id: Any, conversation_id: str) -> str:
     """Namespace conversation history by user so one user can never read or
@@ -33,7 +33,9 @@ You have access to a set of backend tools. ALWAYS use these tools to fetch real 
 
 Core Workflows & Guidelines:
 1. Workspace / Seat Booking:
-   - Guide the user step-by-step: Location -> Branch -> Room -> Date (YYYY-MM-DD) -> Time Slot -> Seat.
+   - Guide the user step-by-step: Location -> Branch -> Room (optionally filtered by floor via search_rooms) -> Date (YYYY-MM-DD) -> Time Slot -> Seat.
+   - If the user mentions a floor (e.g. "a seat on the 3rd floor"), pass it to search_rooms's `floor` parameter rather than guessing which room that is.
+   - There is no proximity/adjacency data between rooms - if asked for a seat "near the meeting room" or similar, say so plainly and offer to search by branch/floor/room instead of inventing an answer.
    - Always verify available seats with check_availability before presenting them.
    - State prices clearly in INR (₹).
 2. Day Passes:
@@ -52,9 +54,11 @@ Core Workflows & Guidelines:
    - Use get_transaction_history for questions about past top-ups, charges, or refunds.
 5. Checking Bookings:
    - Use get_my_bookings to list a user's bookings, and get_booking_details for full detail on one of them (by booking ID).
+   - For a yes/no question like "Do I have a seat booked for Monday?", call get_my_bookings and check the dates yourself rather than asking the user to look it up - answer directly (yes/no, with the details if yes).
    - Use get_location_details or get_branch_details when the user asks about a specific location/branch's address, hours, or facilities.
 6. Final Confirmation:
    - When all required details are specified and the user wants to book, call confirm_intent_to_book with the parameters and estimated amount, including attendees/title/purpose/participant_emails/required_amenities when known. This will trigger a rich confirmation card in the user interface.
+   - `location_id` and `branch_id` MUST be the real UUID values returned by tools like search_rooms/check_availability/get_meeting_or_conference_rooms/get_day_pass_availability/recommend_seat/recommend_room/get_room_details (each includes `branch_id` and `location_id` fields) - NEVER pass a location or branch NAME into these fields, even if no ID is immediately visible; call one of those tools first if you don't already have the ID from earlier in the conversation.
    - Only treat a clear, unambiguous "yes" as confirmation (e.g. "yes", "confirm", "book it", "go ahead"). Words like "maybe", "not sure", or "show me" are NOT confirmation - keep gathering information or presenting options instead.
    - NEVER call create_booking-equivalent tools directly and NEVER tell the user a booking is confirmed yourself - only confirm_intent_to_book / confirm_intent_to_reschedule / confirm_intent_to_cancel can trigger the confirmation card, and the booking only becomes real after the user clicks confirm in the UI.
    - If the user has more than one active booking and asks to cancel "my booking" without saying which, use get_my_bookings and ask them to specify which one before calling confirm_intent_to_cancel.
@@ -69,12 +73,12 @@ async def process_chat_message(
 ) -> ChatResponse:
 
     try:
-        client = get_client()
-    except OpenAIConfigError as e:
+        model = get_model()
+    except OpenRouterConfigError as e:
         logger.error(str(e))
         return ChatResponse(
             conversation_id=conversation_id,
-            message="The AI assistant isn't configured yet. Please set `OPENAI_API_KEY` in the environment and restart the backend to enable live responses.",
+            message="The AI assistant isn't configured yet. Please set `OPENROUTER_API_KEY` in the environment and restart the backend to enable live responses.",
             suggested_actions=["Book a Seat", "Day Pass", "Meeting Rooms", "My Wallet"]
         )
 
@@ -85,17 +89,14 @@ async def process_chat_message(
     # Instantiate the tools class so methods are bound to db and current_user
     bot_tools = ChatbotTools(db=db, current_user=current_user)
     tool_names = [m for m in dir(bot_tools) if callable(getattr(bot_tools, m)) and not m.startswith("_")]
-    tool_callables = {name: getattr(bot_tools, name) for name in tool_names}
-    tool_schemas = [build_tool_schema(func) for func in tool_callables.values()]
+    tool_callables = [make_safe_tool(getattr(bot_tools, name)) for name in tool_names]
 
     result = await run_agentic_chat(
-        client=client,
-        model=settings.OPENAI_MODEL,
+        model=model,
         system_instruction=SYSTEM_INSTRUCTION,
         history=history,
         user_message=message,
         tool_callables=tool_callables,
-        tool_schemas=tool_schemas,
     )
 
     # Save updated history for the next turn in this conversation

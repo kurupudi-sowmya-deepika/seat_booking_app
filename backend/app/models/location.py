@@ -60,6 +60,7 @@ class Room(BaseModel):
     room_type: Mapped[str] = mapped_column(String, default="WORKSPACE") # WORKSPACE, MEETING_ROOM, CONFERENCE_ROOM
     capacity: Mapped[int] = mapped_column(Integer)
     floor: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    room_number: Mapped[str | None] = mapped_column(String, nullable=True)
     price_per_hour: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     status: Mapped[str] = mapped_column(String, default="ACTIVE")
 
@@ -73,6 +74,8 @@ class Facility(BaseModel):
 
     name: Mapped[str] = mapped_column(String, unique=True)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Groups the floor-plan editor's facility library (Furniture/Equipment/Facilities/Building).
+    category: Mapped[str | None] = mapped_column(String, nullable=True)
 
     rooms = relationship("Room", secondary="room_facilities", back_populates="facilities")
 

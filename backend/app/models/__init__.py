@@ -6,6 +6,7 @@ from app.models.wallet import Wallet, CreditTransaction
 from app.models.visitor import Visitor, VisitorStatus
 from app.models.notification import Notification, NotificationType
 from app.models.system_settings import SystemSettings
+from app.models.floor_plan import Floor, FloorLayoutItem, FloorLayoutItemType, LayoutShape
 
 # For Alembic to discover all models
 __all__ = [
@@ -27,5 +28,9 @@ __all__ = [
     "VisitorStatus",
     "Notification",
     "NotificationType",
-    "SystemSettings"
+    "SystemSettings",
+    "Floor",
+    "FloorLayoutItem",
+    "FloorLayoutItemType",
+    "LayoutShape"
 ]
