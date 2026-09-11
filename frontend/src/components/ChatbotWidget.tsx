@@ -21,7 +21,7 @@ export const ChatbotWidget: React.FC = () => {
       id: 'init',
       text: "👋 Hi! I'm the Seat Booking App assistant. I can help you search live workspace availability, book seats, reserve meeting rooms, buy day passes, and manage your credits.",
       isBot: true,
-      actions: ['Find seats in Bangalore', 'Book a Day Pass', 'Find meeting room for 6', 'Check wallet balance']
+      actions: ['Book a Seat', 'Book Meeting Room', 'Book Conference Room', 'Day Pass', 'Check Availability', 'My Bookings', 'Cancel Booking']
     }
   ]);
   const [input, setInput] = useState('');
@@ -39,7 +39,10 @@ export const ChatbotWidget: React.FC = () => {
   }, [messages, isOpen]);
 
   const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
+    // Guard against duplicate/concurrent sends - relying solely on disabling the
+    // Send button isn't enough since suggested-action chips on older messages
+    // stay clickable while a request is in flight.
+    if (!text.trim() || loading) return;
 
     const userMsg: Message = { id: Date.now().toString(), text, isBot: false };
     setMessages(prev => [...prev, userMsg]);
@@ -87,7 +90,13 @@ export const ChatbotWidget: React.FC = () => {
         booking_date: payload.booking_date,
         time_slot_id: payload.time_slot_id,
         start_time: payload.start_time,
-        end_time: payload.end_time
+        end_time: payload.end_time,
+        number_of_people: payload.attendees || undefined,
+        title: payload.title || undefined,
+        purpose: payload.purpose || undefined,
+        participant_emails: payload.participant_emails || undefined,
+        required_amenities: payload.required_amenities || undefined,
+        additional_users: payload.additional_users || undefined
       });
       
       if (res.data.id) {
@@ -122,6 +131,34 @@ export const ChatbotWidget: React.FC = () => {
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         text: `❌ Could not create payment session: ${err.response?.data?.detail}`,
+        isBot: true
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRescheduleConfirm = async (payload: any) => {
+    try {
+      setLoading(true);
+      const res = await api.put(`/bookings/${payload.booking_id}/modify`, {
+        booking_date: payload.new_date,
+        start_time: payload.new_start_time,
+        end_time: payload.new_end_time
+      });
+      if (res.data) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          text: `✅ Booking rescheduled to ${payload.new_date}, ${payload.new_start_time} - ${payload.new_end_time}. Updated amount: ₹${res.data.amount}.`,
+          isBot: true,
+          actions: ['View My Bookings']
+        }]);
+      }
+    } catch (err: any) {
+      const errorText = err.response?.data?.detail || "Failed to reschedule booking.";
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        text: `❌ Could not reschedule: ${errorText}`,
         isBot: true
       }]);
     } finally {
@@ -164,10 +201,29 @@ export const ChatbotWidget: React.FC = () => {
           </p>
           <div className="space-y-1 text-[11px] text-gray-600 bg-white p-2.5 rounded-lg border border-blue-100">
             <div><strong>Type:</strong> {p.booking_type || 'Workspace'}</div>
+            {p.resource_label && <div><strong>Resource:</strong> {p.resource_label}</div>}
             <div><strong>Date:</strong> {p.booking_date}</div>
+            {(p.start_time || p.end_time) && <div><strong>Time:</strong> {p.start_time} - {p.end_time}</div>}
+            {p.attendees && <div><strong>Attendees:</strong> {p.attendees}</div>}
+            {p.title && <div><strong>Title:</strong> {p.title}</div>}
+            {p.purpose && <div><strong>Purpose:</strong> {p.purpose}</div>}
+            {p.participant_emails && p.participant_emails.length > 0 && (
+              <div><strong>Participants:</strong> {p.participant_emails.join(', ')}</div>
+            )}
+            {p.additional_users && p.additional_users.length > 0 && (
+              <div>
+                <strong>Guest List:</strong>
+                {p.additional_users.map((u: any, i: number) => (
+                  <div key={i} className="pl-2 text-gray-500">• {u.name} ({u.email})</div>
+                ))}
+              </div>
+            )}
+            {p.required_amenities && p.required_amenities.length > 0 && (
+              <div><strong>Amenities:</strong> {p.required_amenities.join(', ')}</div>
+            )}
             {p.amount && <div><strong>Amount:</strong> ₹{p.amount}</div>}
           </div>
-          <button 
+          <button
             onClick={() => handleBookingConfirm(p)}
             className="w-full py-2 bg-[#007bc0] hover:bg-[#005691] text-white rounded-lg font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5"
             disabled={loading}
@@ -177,7 +233,31 @@ export const ChatbotWidget: React.FC = () => {
         </div>
       );
     }
-    
+
+    if (msg.metadata.action === 'REQUIRE_RESCHEDULE_CONFIRMATION') {
+      const p = msg.metadata.payload;
+      return (
+        <div className="mt-3 p-3.5 bg-blue-50/90 rounded-xl border border-blue-200 text-xs text-gray-800 space-y-2">
+          <p className="font-bold text-[#005691] flex items-center gap-1.5 text-xs">
+            <Sparkles size={14} /> Confirm Reschedule
+          </p>
+          <div className="space-y-1 text-[11px] text-gray-600 bg-white p-2.5 rounded-lg border border-blue-100">
+            <div><strong>Room:</strong> {p.room_name}</div>
+            <div><strong>From:</strong> {p.current_date}, {p.current_time}</div>
+            <div><strong>To:</strong> {p.new_date}, {p.new_start_time} - {p.new_end_time}</div>
+            <div><strong>New Amount:</strong> ₹{p.new_amount}</div>
+          </div>
+          <button
+            onClick={() => handleRescheduleConfirm(p)}
+            className="w-full py-2 bg-[#007bc0] hover:bg-[#005691] text-white rounded-lg font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5"
+            disabled={loading}
+          >
+            <CheckCircle2 size={14} /> Confirm Reschedule
+          </button>
+        </div>
+      );
+    }
+
     if (msg.metadata.action === 'REQUIRE_TOPUP_CONFIRMATION') {
       return (
         <div className="mt-3 p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
@@ -266,7 +346,8 @@ export const ChatbotWidget: React.FC = () => {
                           else if (action === 'Add Credits') navigate('/wallet');
                           else sendMessage(action);
                         }}
-                        className="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-[#007bc0] text-[11px] font-semibold hover:bg-[#007bc0] hover:text-white transition-all"
+                        disabled={loading}
+                        className="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-[#007bc0] text-[11px] font-semibold hover:bg-[#007bc0] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {action}
                       </button>

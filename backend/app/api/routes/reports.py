@@ -121,20 +121,36 @@ async def get_occupancy_report(
         )
     )).scalar_one()
 
-    # Branch-wise utilization
+    # Branch-wise utilization (two grouped queries instead of two per branch)
     branches = (await db.execute(select(Branch).where(Branch.status == "ACTIVE"))).scalars().all()
+    branch_ids = [br.id for br in branches]
+
+    seats_by_branch: Dict[Any, int] = {}
+    booked_by_branch: Dict[Any, int] = {}
+    if branch_ids:
+        seats_res = await db.execute(
+            select(Room.branch_id, func.count(Seat.id))
+            .join(Seat, Seat.room_id == Room.id)
+            .where(Room.branch_id.in_(branch_ids))
+            .group_by(Room.branch_id)
+        )
+        seats_by_branch = dict(seats_res.all())
+
+        booked_res = await db.execute(
+            select(Booking.branch_id, func.count(Booking.id))
+            .where(
+                Booking.branch_id.in_(branch_ids),
+                Booking.booking_date == today,
+                Booking.status == BookingStatus.CONFIRMED
+            )
+            .group_by(Booking.branch_id)
+        )
+        booked_by_branch = dict(booked_res.all())
+
     branch_stats = []
     for br in branches:
-        br_seats = (await db.execute(select(func.count(Seat.id)).join(Room).where(Room.branch_id == br.id))).scalar_one()
-        br_booked = (await db.execute(
-            select(func.count(Booking.id)).where(
-                and_(
-                    Booking.branch_id == br.id,
-                    Booking.booking_date == today,
-                    Booking.status == BookingStatus.CONFIRMED
-                )
-            )
-        )).scalar_one()
+        br_seats = seats_by_branch.get(br.id, 0)
+        br_booked = booked_by_branch.get(br.id, 0)
         rate = round((br_booked / max(1, br_seats)) * 100, 1) if br_seats > 0 else 0
         branch_stats.append({
             "branch_id": str(br.id),

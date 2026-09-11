@@ -6,6 +6,7 @@ interface PriceSummaryProps {
   numberOfPeople?: number;
   hourlyRate?: number;
   durationHours?: number;
+  durationDays?: number;
   discount?: number;
   total: number;
 }
@@ -16,6 +17,7 @@ export const PriceSummary: React.FC<PriceSummaryProps> = ({
   numberOfPeople,
   hourlyRate,
   durationHours,
+  durationDays,
   discount = 0,
   total,
 }) => {
@@ -47,6 +49,12 @@ export const PriceSummary: React.FC<PriceSummaryProps> = ({
         <p className="flex justify-between text-gray-600">
           <span>Duration</span>
           <strong className="text-gray-900">{durationHours} hour{durationHours === 1 ? '' : 's'}</strong>
+        </p>
+      )}
+      {durationDays !== undefined && (
+        <p className="flex justify-between text-gray-600">
+          <span>Number of days</span>
+          <strong className="text-gray-900">{durationDays} day{durationDays === 1 ? '' : 's'}</strong>
         </p>
       )}
       <p className="flex justify-between text-gray-600">

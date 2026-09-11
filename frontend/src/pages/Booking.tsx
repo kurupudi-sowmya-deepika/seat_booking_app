@@ -23,26 +23,19 @@ export const Booking: React.FC = () => {
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedRoom, setSelectedRoom] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedSlots, setSelectedSlots] = useState<string[]>(['09:00', '09:15', '09:30', '09:45']);
+  // Time slots come from Admin > Time Slots (real, bookable time_slot_id records) rather
+  // than a generated grid - a user can check several to book the same seat across each one.
+  const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
 
-  const getComputedTimes = () => {
-    if (selectedSlots.length === 0) return { startTime: '', endTime: '' };
-    const sorted = [...selectedSlots].sort();
-    const start = sorted[0];
-    const last = sorted[sorted.length - 1];
-    
-    const [h, m] = last.split(':').map(Number);
-    let nextH = h;
-    let nextM = m + 15;
-    if (nextM >= 60) {
-      nextH += 1;
-      nextM -= 60;
-    }
-    const end = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
-    return { startTime: start, endTime: end };
+  const toggleSlot = (slotId: string) => {
+    setSelectedSlotIds(prev =>
+      prev.includes(slotId) ? prev.filter(id => id !== slotId) : [...prev, slotId]
+    );
   };
 
-  const { startTime, endTime } = getComputedTimes();
+  const selectedSlotObjs = timeSlots.filter(s => selectedSlotIds.includes(s.id))
+    .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
   const [seats, setSeats] = useState<any[]>([]);
   const [selectedSeat, setSelectedSeat] = useState<any | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -56,6 +49,9 @@ export const Booking: React.FC = () => {
     api.get('/locations/').then(res => setLocations(res.data)).catch(() => {});
     api.get('/wallet/').then(res => setWallet(res.data)).catch(() => {});
     api.get('/bookings/my').then(res => setBookings(res.data || [])).catch(() => {});
+    api.get('/time-slots/').then(res => {
+      setTimeSlots((res.data || []).filter((s: any) => s.status === 'ACTIVE'));
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -93,21 +89,28 @@ export const Booking: React.FC = () => {
   }, [selectedBranch]);
 
   const fetchAvailability = async () => {
-    if (selectedRoom && date && startTime && endTime) {
+    if (selectedRoom && date && selectedSlotIds.length > 0) {
       setLoading(true);
       setError('');
       try {
-        const res = await api.get(`/bookings/availability/seat`, {
-          params: { 
-            room_id: selectedRoom, 
-            booking_date: date,
-            start_time: startTime + ':00',
-            end_time: endTime + ':00'
-          }
+        // A seat only counts as bookable for this selection if it's free in EVERY
+        // checked slot - each slot becomes its own booking, so partial availability
+        // would otherwise let the user pick a seat that can't actually cover all of them.
+        const responses = await Promise.all(selectedSlotIds.map(slotId =>
+          api.get(`/bookings/availability/seat`, {
+            params: { room_id: selectedRoom, booking_date: date, time_slot_id: slotId }
+          })
+        ));
+        const base = responses[0].data as any[];
+        const merged = base.map(seat => {
+          const availableEverywhere = responses.every(r =>
+            r.data.some((s: any) => s.seat_id === seat.seat_id && s.status === 'AVAILABLE')
+          );
+          return { ...seat, status: availableEverywhere ? 'AVAILABLE' : 'BOOKED' };
         });
-        setSeats(res.data);
-        // Deselect if currently selected seat was booked
-        if (selectedSeat && !res.data.find((s: any) => s.seat_id === selectedSeat.seat_id && s.status === 'AVAILABLE')) {
+        setSeats(merged);
+        // Deselect if currently selected seat is no longer available across all selected slots
+        if (selectedSeat && !merged.find((s: any) => s.seat_id === selectedSeat.seat_id && s.status === 'AVAILABLE')) {
           setSelectedSeat(null);
         }
       } catch (err) {
@@ -115,35 +118,45 @@ export const Booking: React.FC = () => {
       } finally {
         setLoading(false);
       }
+    } else {
+      setSeats([]);
     }
   };
 
   useEffect(() => {
     fetchAvailability();
-  }, [selectedRoom, date, startTime, endTime]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRoom, date, selectedSlotIds.join(',')]);
 
   const handleBooking = async () => {
-    if (!selectedSeat) return;
+    if (!selectedSeat || selectedSlotIds.length === 0) return;
     setBookingLoading(true);
     setError('');
-    
+
+    // Each checked slot is its own booking (its own time_slot_id) for the same seat.
+    const created: any[] = [];
     try {
-      const res = await api.post('/bookings/', {
-        booking_type: 'SEAT',
-        location_id: selectedLoc,
-        branch_id: selectedBranch,
-        room_id: selectedRoom,
-        seat_id: selectedSeat.seat_id,
-        booking_date: date,
-        start_time: startTime + ':00',
-        end_time: endTime + ':00'
-      });
-      if (res.data.id) {
-        setShowConfirmModal(false);
-        navigate('/booking/success?session_id=' + res.data.id);
+      for (const slotId of selectedSlotIds) {
+        const res = await api.post('/bookings/', {
+          booking_type: 'SEAT',
+          location_id: selectedLoc,
+          branch_id: selectedBranch,
+          room_id: selectedRoom,
+          seat_id: selectedSeat.seat_id,
+          booking_date: date,
+          time_slot_id: slotId
+        });
+        created.push(res.data);
       }
+      setShowConfirmModal(false);
+      navigate('/booking/success?session_id=' + created[0].id);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to create booking");
+      const detail = err.response?.data?.detail || "Failed to create booking";
+      setError(
+        created.length > 0
+          ? `Booked ${created.length} of ${selectedSlotIds.length} selected slot(s). The rest failed: ${detail}. Check My Bookings for what was created.`
+          : detail
+      );
       setBookingLoading(false);
       setShowConfirmModal(false);
       fetchAvailability();
@@ -156,11 +169,12 @@ export const Booking: React.FC = () => {
 
   const walletBalance = wallet?.balance ?? 0;
   const seatPrice = selectedSeat ? (selectedSeat.price || 100) : 0;
-  const remainingBalance = walletBalance - seatPrice;
+  const totalPrice = seatPrice * selectedSlotIds.length;
+  const remainingBalance = walletBalance - totalPrice;
   const hasSufficientCredits = remainingBalance >= 0;
 
   return (
-    <div className="w-full font-['Inter']">
+    <div className="w-full">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 mb-6">
         <div className="w-6 h-6 bg-[#005691] text-white flex items-center justify-center rounded-sm">
@@ -269,68 +283,47 @@ export const Booking: React.FC = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold text-gray-600 flex items-center gap-1.5">
-                    <Clock size={14} className="text-[#007bc0]" /> Select Time Slots (15-min intervals)
+                  <label className="block text-sm font-semibold text-gray-600 flex items-center gap-1.5">
+                    <Clock size={15} className="text-[#007bc0]" /> Select Time Slots
                   </label>
-                  {selectedSlots.length > 0 && (
-                    <span className="text-[10px] font-bold text-[#007bc0] bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
-                      {startTime} - {endTime}
+                  {selectedSlotObjs.length > 0 && (
+                    <span className="text-xs font-bold text-[#007bc0] bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
+                      {selectedSlotObjs.length} slot{selectedSlotObjs.length > 1 ? 's' : ''} selected
                     </span>
                   )}
                 </div>
-                
-                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-48 overflow-y-auto pr-1 hide-scrollbar">
-                  {Array.from({ length: 45 }).map((_, i) => { // 8:00 to 19:00
-                    const totalMins = 8 * 60 + i * 15;
-                    const h = Math.floor(totalMins / 60);
-                    const m = totalMins % 60;
-                    const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                    
-                    const isSelected = selectedSlots.includes(timeStr);
-                    
-                    const toggleSlot = () => {
-                      let newSlots = [...selectedSlots];
-                      if (isSelected) {
-                        newSlots = newSlots.filter(s => s !== timeStr);
-                      } else {
-                        newSlots.push(timeStr);
-                      }
-                      
-                      if (newSlots.length > 1) {
-                        newSlots.sort();
-                        const first = newSlots[0];
-                        const last = newSlots[newSlots.length - 1];
-                        const filled = [];
-                        let current = first;
-                        while (current <= last) {
-                          filled.push(current);
-                          const [ch, cm] = current.split(':').map(Number);
-                          let nextH = ch;
-                          let nextM = cm + 15;
-                          if (nextM >= 60) { nextH++; nextM -= 60; }
-                          current = `${nextH.toString().padStart(2, '0')}:${nextM.toString().padStart(2, '0')}`;
-                        }
-                        newSlots = filled;
-                      }
-                      setSelectedSlots(newSlots);
-                    };
 
-                    return (
-                      <button
-                        key={timeStr}
-                        type="button"
-                        onClick={toggleSlot}
-                        className={`py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
-                          isSelected
-                            ? 'bg-[#007bc0] text-white border-[#005a8c] shadow-sm scale-105'
-                            : 'bg-white text-[#007bc0] border-blue-200 hover:border-[#007bc0] hover:bg-blue-50'
-                        }`}
-                      >
-                        {timeStr}
-                      </button>
-                    );
-                  })}
-                </div>
+                {timeSlots.length === 0 ? (
+                  <div className="text-sm text-gray-400 italic p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    No time slots have been configured by an admin yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-1 hide-scrollbar">
+                    {[...timeSlots].sort((a, b) => a.start_time.localeCompare(b.start_time)).map(slot => {
+                      const isSelected = selectedSlotIds.includes(slot.id);
+                      return (
+                        <label
+                          key={slot.id}
+                          className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-blue-50 border-[#007bc0] ring-1 ring-[#007bc0]/30'
+                              : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/40'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSlot(slot.id)}
+                            className="w-4 h-4 text-[#007bc0] rounded border-gray-300 focus:ring-[#007bc0] shrink-0"
+                          />
+                          <span className={`text-sm font-bold ${isSelected ? 'text-[#005a8c]' : 'text-gray-700'}`}>
+                            {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -421,11 +414,11 @@ export const Booking: React.FC = () => {
               )}
             </div>
             
-            {!selectedRoom || !date || selectedSlots.length === 0 ? (
+            {!selectedRoom || !date || selectedSlotIds.length === 0 ? (
               <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50 text-gray-400 p-8 text-center">
                 <MapPin size={48} className="mb-3 opacity-20 text-[#007bc0]" />
                 <h4 className="font-semibold text-gray-700 text-sm">Interactive Seat Plan</h4>
-                <p className="text-xs text-gray-400 mt-1 max-w-sm">Please select a location, branch, room, date, and valid time range to load real-time seat availability.</p>
+                <p className="text-xs text-gray-400 mt-1 max-w-sm">Please select a location, branch, room, date, and at least one time slot to load real-time seat availability.</p>
               </div>
             ) : loading && seats.length === 0 ? (
               <div className="flex-grow flex items-center justify-center">
@@ -486,7 +479,9 @@ export const Booking: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-800 text-sm">Seat {selectedSeat.seat_number} Selected</h4>
-                      <p className="text-xs text-gray-500">Price: ₹{selectedSeat.price || 100} &bull; Date: {date} &bull; Time: {startTime} - {endTime}</p>
+                      <p className="text-xs text-gray-500">
+                        Price: ₹{selectedSeat.price || 100}/slot &bull; Date: {date} &bull; {selectedSlotObjs.map(s => `${s.start_time.slice(0, 5)}-${s.end_time.slice(0, 5)}`).join(', ')}
+                      </p>
                     </div>
                   </div>
                   <button 
@@ -537,12 +532,22 @@ export const Booking: React.FC = () => {
                   <span className="font-bold text-gray-800">{selectedRoomObj?.name} &bull; Seat {selectedSeat?.seat_number}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Date & Time:</span>
-                  <span className="font-bold text-gray-800">{date} &bull; {startTime} to {endTime}</span>
+                  <span className="text-gray-500">Date:</span>
+                  <span className="font-bold text-gray-800">{date}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 shrink-0">Time Slots:</span>
+                  <span className="font-bold text-gray-800 text-right">
+                    {selectedSlotObjs.map(s => `${s.start_time.slice(0, 5)}-${s.end_time.slice(0, 5)}`).join(', ')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Price per slot:</span>
+                  <span className="font-bold text-gray-800">₹{seatPrice.toFixed(2)}</span>
                 </div>
                 <div className="pt-2 border-t border-gray-200 flex justify-between font-bold text-sm text-gray-800">
-                  <span>Seat Price:</span>
-                  <span className="text-[#007bc0]">₹{seatPrice.toFixed(2)}</span>
+                  <span>Total ({selectedSlotObjs.length} slot{selectedSlotObjs.length > 1 ? 's' : ''}):</span>
+                  <span className="text-[#007bc0]">₹{totalPrice.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -554,7 +559,7 @@ export const Booking: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Credits Deducted:</span>
-                  <span className="font-semibold text-red-600">-₹{seatPrice.toFixed(2)}</span>
+                  <span className="font-semibold text-red-600">-₹{totalPrice.toFixed(2)}</span>
                 </div>
                 <div className="pt-2 border-t border-blue-200/80 flex justify-between font-extrabold text-xs">
                   <span className="text-gray-700">Balance After Booking:</span>

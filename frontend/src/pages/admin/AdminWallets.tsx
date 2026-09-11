@@ -78,7 +78,7 @@ export const AdminWallets: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6 font-['Inter']">
+    <div className="space-y-6">
       <div className="flex items-center gap-2">
         <div className="w-6 h-6 bg-[#005691] text-white flex items-center justify-center rounded-sm">
           <ChevronRight size={16} />

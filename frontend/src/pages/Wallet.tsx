@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import {
   Wallet as WalletIcon, CreditCard, ArrowUpRight, ArrowDownRight,
   RotateCcw, Plus, Loader2, ChevronRight, CheckCircle2,
@@ -10,7 +10,10 @@ import {
 import api from '../services/api';
 
 export const Wallet: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'wallet' | 'transactions'>('wallet');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'wallet' | 'transactions'>(
+    location.pathname === '/transactions' ? 'transactions' : 'wallet'
+  );
   const [balance, setBalance] = useState<number>(0);
   const [currency, setCurrency] = useState('INR');
   const [walletId, setWalletId] = useState<string>('');
@@ -19,7 +22,6 @@ export const Wallet: React.FC = () => {
   const [topupLoading, setTopupLoading] = useState(false);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,6 +95,12 @@ export const Wallet: React.FC = () => {
     if (selectedType !== 'ALL' && tx.transaction_type !== selectedType) {
       return false;
     }
+    if (dateFrom && new Date(tx.created_at) < new Date(dateFrom)) {
+      return false;
+    }
+    if (dateTo && new Date(tx.created_at) > new Date(`${dateTo}T23:59:59`)) {
+      return false;
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const desc = (tx.description || '').toLowerCase();
@@ -106,7 +114,7 @@ export const Wallet: React.FC = () => {
   });
 
   return (
-    <div className="w-full font-['Inter'] space-y-8">
+    <div className="w-full space-y-8">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -130,6 +138,8 @@ export const Wallet: React.FC = () => {
           disabled={loading}
           className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl shadow-sm transition disabled:opacity-50 self-start sm:self-auto"
         >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          Refresh
         </button>
       </div>
 
@@ -328,6 +338,32 @@ export const Wallet: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#007bc0]/30 focus:border-[#007bc0] transition"
             />
+          </div>
+
+          {/* Date Range Filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">From</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#007bc0]/30 focus:border-[#007bc0] transition"
+            />
+            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">To</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#007bc0]/30 focus:border-[#007bc0] transition"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                onClick={() => { setDateFrom(''); setDateTo(''); }}
+                className="text-[11px] font-bold text-[#007bc0] hover:underline"
+              >
+                Clear dates
+              </button>
+            )}
           </div>
 
           {/* Table / Ledger View */}

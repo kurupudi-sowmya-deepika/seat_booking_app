@@ -5,6 +5,7 @@ from app.models.booking import TimeSlot, Booking, Payment
 from app.models.wallet import Wallet, CreditTransaction
 from app.models.visitor import Visitor, VisitorStatus
 from app.models.notification import Notification, NotificationType
+from app.models.system_settings import SystemSettings
 
 # For Alembic to discover all models
 __all__ = [
@@ -25,5 +26,6 @@ __all__ = [
     "Visitor",
     "VisitorStatus",
     "Notification",
-    "NotificationType"
+    "NotificationType",
+    "SystemSettings"
 ]

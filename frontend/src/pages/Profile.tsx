@@ -15,7 +15,7 @@ export const Profile: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full font-['Inter'] space-y-6">
+    <div className="w-full space-y-6">
       {/* Header */}
       <div className="flex items-center gap-2">
         <div className="w-6 h-6 bg-[#005691] text-white flex items-center justify-center rounded-sm">

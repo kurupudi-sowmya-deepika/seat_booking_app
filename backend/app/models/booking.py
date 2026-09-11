@@ -56,6 +56,11 @@ class Booking(BaseModel):
     number_of_people: Mapped[int] = mapped_column(default=1)
     additional_users: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # Store additional user info
 
+    # Meeting/conference room metadata
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    purpose: Mapped[str | None] = mapped_column(String, nullable=True)
+    participant_emails: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
     user = relationship("User", back_populates="bookings")
     seat = relationship("Seat", back_populates="bookings")
     day_pass = relationship("DayPass", back_populates="bookings")

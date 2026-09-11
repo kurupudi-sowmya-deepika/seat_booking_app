@@ -10,6 +10,7 @@ from uuid import UUID
 from app.db.database import get_db
 from app.models.wallet import Wallet, CreditTransaction, TransactionType
 from app.models.user import User
+from app.models.notification import Notification, NotificationType
 from app.schemas.wallet import (
     WalletResponse, TopupRequest, TopupResponse, TransactionResponse,
     AdminAdjustRequest, AdminWalletDetail
@@ -123,6 +124,12 @@ async def create_topup_session(
             reference_id=None,
             description="Demo wallet credit",
             status="SUCCESS"
+        ))
+        db.add(Notification(
+            user_id=current_user.id,
+            title="Wallet Top-up Successful",
+            message=f"₹{topup_in.amount:.2f} was added to your wallet. New balance: ₹{wallet.balance:.2f}.",
+            type=NotificationType.WALLET_CREDIT
         ))
         await db.commit()
         await db.refresh(wallet)

@@ -56,9 +56,11 @@ export const AdminLayout: React.FC = () => {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50 font-['Inter'] overflow-hidden">
+    <div className="flex h-screen flex-col bg-gray-50 overflow-hidden">
+      <div className="bosch-supergraphic shrink-0" aria-hidden="true" />
+      <div className="flex min-h-0 flex-1">
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`bg-[#0f172a] text-slate-300 transition-all duration-300 flex flex-col shrink-0 z-30 ${
           sidebarOpen ? 'w-64' : 'w-20'
         }`}
@@ -66,18 +68,18 @@ export const AdminLayout: React.FC = () => {
         {/* Brand */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-slate-800 shrink-0">
           {sidebarOpen ? (
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#007bc0] text-white flex items-center justify-center font-black text-sm">
-                SS
+            <Link to="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm overflow-hidden">
+                <img src="/favicon.png" alt="Seat Booking App" className="h-7 w-7 object-contain" />
               </div>
-              <span className="font-extrabold text-sm tracking-wide text-white">Seat Booking Admin</span>
-            </div>
+              <span className="font-extrabold text-sm tracking-wide text-white">Seat Booking App</span>
+            </Link>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-[#007bc0] text-white flex items-center justify-center font-black text-sm mx-auto">
-              SS
-            </div>
+            <Link to="/" className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm overflow-hidden mx-auto">
+              <img src="/favicon.png" alt="Seat Booking App" className="h-7 w-7 object-contain" />
+            </Link>
           )}
-          <button 
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="text-slate-400 hover:text-white p-1 rounded-md hidden md:block"
           >
@@ -158,6 +160,7 @@ export const AdminLayout: React.FC = () => {
             >
               <LogOut size={18} />
             </button>
+            <img src="/bosch-logo.png" alt="Bosch" className="hidden h-7 w-auto object-contain sm:block" />
           </div>
         </header>
 
@@ -170,6 +173,7 @@ export const AdminLayout: React.FC = () => {
       </div>
 
       <ChatbotWidget />
+      </div>
     </div>
   );
 };

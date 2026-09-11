@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.db.database import get_db
 from app.models.wallet import Wallet, CreditTransaction, TransactionType
+from app.models.notification import Notification, NotificationType
 from app.core.config import settings
 
 router = APIRouter()
@@ -61,6 +62,30 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                     status="SUCCESS"
                 )
                 db.add(transaction)
+                db.add(Notification(
+                    user_id=wallet.user_id,
+                    title="Wallet Top-up Successful",
+                    message=f"₹{amount:.2f} was added to your wallet via Stripe. New balance: ₹{balance_after:.2f}.",
+                    type=NotificationType.WALLET_CREDIT
+                ))
+                await db.commit()
+
+    elif event["type"] == "checkout.session.expired":
+        # Note: payment_intent.payment_failed isn't handled here because a PaymentIntent
+        # object doesn't carry client_reference_id, so it can't be correlated to a wallet
+        # without additionally wiring payment_intent_data.metadata at Session creation time.
+        session = event["data"]["object"]
+        wallet_id = session.get("client_reference_id")
+        if wallet_id:
+            wallet_result = await db.execute(select(Wallet).where(Wallet.id == wallet_id))
+            wallet = wallet_result.scalar_one_or_none()
+            if wallet:
+                db.add(Notification(
+                    user_id=wallet.user_id,
+                    title="Wallet Top-up Failed",
+                    message="Your wallet top-up could not be completed. No credits were charged - please try again.",
+                    type=NotificationType.SYSTEM
+                ))
                 await db.commit()
 
     return {"status": "success"}

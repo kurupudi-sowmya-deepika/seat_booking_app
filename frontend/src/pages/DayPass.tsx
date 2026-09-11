@@ -38,8 +38,9 @@ export const DayPass: React.FC = () => {
   const [error, setError] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   
-  // New state for quantity and additional users
+  // New state for quantity, duration, and additional users
   const [quantity, setQuantity] = useState(1);
+  const [numDays, setNumDays] = useState(1);
   const [additionalUsers, setAdditionalUsers] = useState<AdditionalUser[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
@@ -136,6 +137,25 @@ export const DayPass: React.FC = () => {
     setAdditionalUsers(additionalUsers.filter(u => u.email !== email));
   };
 
+  // Consecutive calendar dates starting from `date`, one per day of the pass.
+  // Built from date COMPONENTS (not toISOString(), which converts to UTC and
+  // shifts a day backwards in any timezone ahead of UTC, e.g. IST) so the
+  // result always matches the calendar date the user actually picked.
+  const getDateRange = (): string[] => {
+    const dates: string[] = [];
+    const [y, m, d] = date.split('-').map(Number);
+    for (let i = 0; i < numDays; i++) {
+      const dt = new Date(y, m - 1, d + i);
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      dates.push(`${yyyy}-${mm}-${dd}`);
+    }
+    return dates;
+  };
+
+  const lastDate = getDateRange()[numDays - 1] || date;
+
   const handleBookDayPass = async () => {
     if (!selectedPass || !selectedLoc || !selectedBranch) return;
     if (quantity > 1 && additionalUsers.length !== quantity - 1) {
@@ -146,20 +166,41 @@ export const DayPass: React.FC = () => {
     setBookingLoading(true);
     setError('');
 
+    const dates = getDateRange();
+
     try {
-      const res = await api.post('/bookings/', {
-        booking_type: 'DAY_PASS',
-        location_id: selectedLoc,
-        branch_id: selectedBranch,
-        day_pass_id: selectedPass.day_pass_id,
-        booking_date: date,
-        number_of_people: quantity,
-        additional_users: additionalUsers
-      });
-      if (res.data.id) {
-        setShowConfirmModal(false);
-        navigate('/booking/success?session_id=' + res.data.id);
+      // Pre-check capacity across every day in the range before creating anything,
+      // so a multi-day booking doesn't fail partway through on a later, sold-out day.
+      if (dates.length > 1) {
+        const checks = await Promise.all(dates.map(d =>
+          api.get('/bookings/availability/day-pass', {
+            params: { day_pass_id: selectedPass.day_pass_id, booking_date: d }
+          })
+        ));
+        const shortIndex = checks.findIndex(r => (r.data?.[0]?.available_capacity ?? 0) < quantity);
+        if (shortIndex !== -1) {
+          setError(`Not enough Day Pass capacity on ${dates[shortIndex]} for ${quantity} ${quantity > 1 ? 'people' : 'person'}. Try fewer days or a different start date.`);
+          setBookingLoading(false);
+          setShowConfirmModal(false);
+          return;
+        }
       }
+
+      const created: any[] = [];
+      for (const d of dates) {
+        const res = await api.post('/bookings/', {
+          booking_type: 'DAY_PASS',
+          location_id: selectedLoc,
+          branch_id: selectedBranch,
+          day_pass_id: selectedPass.day_pass_id,
+          booking_date: d,
+          number_of_people: quantity,
+          additional_users: additionalUsers
+        });
+        created.push(res.data);
+      }
+      setShowConfirmModal(false);
+      navigate('/booking/success?session_id=' + created[0].id);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to book Day Pass");
       setBookingLoading(false);
@@ -173,12 +214,12 @@ export const DayPass: React.FC = () => {
 
   const walletBalance = wallet?.balance ?? 0;
   const passPrice = selectedPass ? selectedPass.price : 0;
-  const totalPrice = passPrice * quantity;
+  const totalPrice = passPrice * quantity * numDays;
   const remainingBalance = walletBalance - totalPrice;
   const hasSufficientCredits = remainingBalance >= 0;
 
   return (
-    <div className="w-full font-['Inter'] space-y-6">
+    <div className="w-full space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2">
         <div className="w-6 h-6 bg-[#005691] text-white flex items-center justify-center rounded-sm">
@@ -234,8 +275,33 @@ export const DayPass: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5"><CalIcon size={14}/> Pass Date</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5"><CalIcon size={14}/> Pass Start Date</label>
                 <input type="date" className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all bg-gray-50/50 text-sm" value={date} onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1.5"><CalIcon size={14}/> Number of Days</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setNumDays(d)}
+                      className={`py-2.5 rounded-xl text-sm font-bold border transition ${
+                        numDays === d
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+                {numDays > 1 && (
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Books {numDays} consecutive days: {date} through {lastDate}.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -272,12 +338,16 @@ export const DayPass: React.FC = () => {
 
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-gray-600">Price per person</span>
+                  <span className="text-xs text-gray-600">Price per person / day</span>
                   <span className="text-sm font-bold text-gray-800">₹{selectedPass ? selectedPass.price : '0'}</span>
                 </div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs text-gray-600">Number of people</span>
                   <span className="text-sm font-bold text-gray-800">{quantity}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-gray-600">Number of days</span>
+                  <span className="text-sm font-bold text-gray-800">{numDays}</span>
                 </div>
                 <div className="pt-2 border-t border-emerald-200 flex justify-between items-center">
                   <span className="text-xs font-bold text-gray-700">Total Price</span>
@@ -443,7 +513,9 @@ export const DayPass: React.FC = () => {
                           </div>
 
                           <h3 className="font-bold text-gray-800 text-lg mt-1">{dp.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">Single user flexible hot desk pass for {date}.</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Single user flexible hot desk pass{numDays > 1 ? ` for ${date} through ${lastDate}` : ` for ${date}`}.
+                          </p>
                         </div>
 
                         {/* Capacity meter */}
@@ -473,7 +545,9 @@ export const DayPass: React.FC = () => {
               <div className="mt-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
                 <div>
                   <h4 className="font-bold text-gray-800 text-sm">Selected: {selectedPass.name}</h4>
-                  <p className="text-xs text-gray-500">Price: ₹{selectedPass.price}/person &bull; {quantity} people &bull; Date: {date} &bull; Remaining: {selectedPass.available_capacity} passes</p>
+                  <p className="text-xs text-gray-500">
+                    Price: ₹{selectedPass.price}/person/day &bull; {quantity} people &bull; {numDays} day{numDays > 1 ? 's' : ''} &bull; From: {date} &bull; Remaining: {selectedPass.available_capacity} passes
+                  </p>
                 </div>
                 <button
                   onClick={() => {
@@ -514,9 +588,12 @@ export const DayPass: React.FC = () => {
               <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
                 <Tag size={18} className="text-emerald-600" /> Confirm Day Pass Booking
               </h3>
-              <p className="text-xs text-gray-500 mb-5">Deduct prepaid credits to secure your hot desk pass for {quantity} person{quantity > 1 ? 's' : ''}.</p>
+              <p className="text-xs text-gray-500 mb-5">
+                Deduct prepaid credits to secure your hot desk pass for {quantity} person{quantity > 1 ? 's' : ''}
+                {numDays > 1 ? ` across ${numDays} days (${date} to ${lastDate})` : ` on ${date}`}.
+              </p>
 
-              <PriceSummary pricePerPerson={selectedPass.price} numberOfPeople={quantity} total={totalPrice} />
+              <PriceSummary pricePerPerson={selectedPass.price} numberOfPeople={quantity} durationDays={numDays} total={totalPrice} />
 
               {(selectedPass.amenities || []).length > 0 && (
                 <div className="mb-5">

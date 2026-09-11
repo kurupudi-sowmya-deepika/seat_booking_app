@@ -69,7 +69,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="w-full flex flex-col font-['Inter'] space-y-6 animate-fade-in pb-12">
+    <div className="w-full flex flex-col space-y-6 animate-fade-in pb-12">
 
 
       {/* Top Welcome Banner */}

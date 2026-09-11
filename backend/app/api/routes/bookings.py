@@ -65,7 +65,10 @@ def map_booking_to_detail(b: Booking) -> BookingDetailResponse:
         facilities=facilities,
         amenities=(b.day_pass.amenities if b.day_pass and b.day_pass.amenities else []),
         number_of_people=b.number_of_people or 1,
-        additional_users=b.additional_users
+        additional_users=b.additional_users,
+        title=b.title,
+        purpose=b.purpose,
+        participant_emails=b.participant_emails
     )
 
 async def create_system_notification(
@@ -485,6 +488,17 @@ async def create_booking(
         extra = booking_in.additional_users or []
         if number_of_people > 1 and len(extra) != number_of_people - 1:
             raise HTTPException(status_code=400, detail="Please add all additional users before confirming")
+
+        seen_emails = {current_user.email.strip().lower()}
+        for attendee in extra:
+            name = (attendee.get("name") or "").strip()
+            email = (attendee.get("email") or "").strip().lower()
+            if not name or not email or "@" not in email:
+                raise HTTPException(status_code=400, detail="Each additional attendee needs a valid name and email address")
+            if email in seen_emails:
+                raise HTTPException(status_code=400, detail=f"Duplicate attendee email: {email}")
+            seen_emails.add(email)
+
         existing_people = (await db.execute(select(func.coalesce(func.sum(Booking.number_of_people), 0)).where(
             and_(Booking.day_pass_id == dp.id, Booking.booking_date == booking_in.booking_date, Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]))
         ))).scalar_one()
@@ -503,19 +517,35 @@ async def create_booking(
             raise HTTPException(status_code=400, detail="room_id, start_time, end_time required for ROOM booking")
         if booking_in.start_time.minute % 15 or booking_in.end_time.minute % 15 or booking_in.start_time.second or booking_in.end_time.second:
             raise HTTPException(status_code=400, detail="Room bookings must start and end on 15-minute boundaries")
-        room = (await db.execute(select(Room).where(Room.id == booking_in.room_id))).scalar_one_or_none()
+        room = (await db.execute(select(Room).options(selectinload(Room.facilities)).where(Room.id == booking_in.room_id))).scalar_one_or_none()
         if not room: raise HTTPException(status_code=404, detail="Room not found")
         if room.branch_id != booking_in.branch_id:
             raise HTTPException(status_code=400, detail="Selected room does not belong to this branch")
         if room.room_type != booking_in.booking_type.value:
             raise HTTPException(status_code=400, detail="Selected room does not match the requested booking type")
-        
+
+        attendees = booking_in.number_of_people or 1
+        if attendees > room.capacity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"{room.name} seats {room.capacity} people, which is below the requested {attendees} attendees."
+            )
+
+        if booking_in.required_amenities:
+            room_facility_names = {f.name.lower() for f in room.facilities} if room.facilities else set()
+            missing = [a for a in booking_in.required_amenities if a.lower() not in room_facility_names]
+            if missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{room.name} does not have the requested amenities: {', '.join(missing)}."
+                )
+
         duration_hrs = (booking_in.end_time.hour - booking_in.start_time.hour) + (booking_in.end_time.minute - booking_in.start_time.minute) / 60.0
         if duration_hrs <= 0: raise HTTPException(status_code=400, detail="Invalid time range")
-        
+
         price = Decimal(str(room.price_per_hour or 0)) * Decimal(str(duration_hrs))
         desc = f"{'Conference' if booking_in.booking_type == BookingType.CONFERENCE_ROOM else 'Meeting'} Room - {room.name}"
-        
+
         overlap = (await db.execute(select(Booking).where(
             and_(Booking.room_id == room.id, Booking.booking_date == booking_in.booking_date, Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]), Booking.start_time < booking_in.end_time, Booking.end_time > booking_in.start_time)
         ))).scalars().first()
@@ -550,7 +580,10 @@ async def create_booking(
             amount=price,
             status=BookingStatus.CONFIRMED,
             number_of_people=booking_in.number_of_people or 1,
-            additional_users=booking_in.additional_users
+            additional_users=booking_in.additional_users,
+            title=booking_in.title,
+            purpose=booking_in.purpose,
+            participant_emails=booking_in.participant_emails
         )
         db.add(booking)
         await db.flush()
@@ -625,15 +658,51 @@ async def modify_booking(
             new_price = Decimal(str(new_seat.price))
             booking.seat_id = new_seat.id
             booking.room_id = new_seat.room_id
+            if modify_in.booking_date:
+                booking.booking_date = modify_in.booking_date
+            if modify_in.time_slot_id:
+                booking.time_slot_id = modify_in.time_slot_id
 
-        if modify_in.booking_date:
-            booking.booking_date = modify_in.booking_date
-        if modify_in.time_slot_id:
-            booking.time_slot_id = modify_in.time_slot_id
-        if modify_in.start_time:
-            booking.start_time = modify_in.start_time
-        if modify_in.end_time:
-            booking.end_time = modify_in.end_time
+        elif booking.room_id and (modify_in.start_time or modify_in.end_time or modify_in.booking_date):
+            # Rescheduling a Meeting/Conference Room booking: re-validate the new slot
+            # and recompute the price for the new duration before committing.
+            room = (await db.execute(select(Room).where(Room.id == booking.room_id))).scalar_one_or_none()
+            if not room: raise HTTPException(status_code=404, detail="Room not found")
+
+            new_date = modify_in.booking_date or booking.booking_date
+            new_start = modify_in.start_time or booking.start_time
+            new_end = modify_in.end_time or booking.end_time
+            if not new_start or not new_end or new_end <= new_start:
+                raise HTTPException(status_code=400, detail="Invalid time range")
+
+            overlap = (await db.execute(select(Booking).where(
+                and_(
+                    Booking.room_id == room.id,
+                    Booking.booking_date == new_date,
+                    Booking.id != booking.id,
+                    Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
+                    Booking.start_time < new_end,
+                    Booking.end_time > new_start
+                )
+            ))).scalars().first()
+            if overlap:
+                raise HTTPException(status_code=409, detail="Room is already booked for the requested time range")
+
+            duration_hrs = (new_end.hour - new_start.hour) + (new_end.minute - new_start.minute) / 60.0
+            new_price = Decimal(str(room.price_per_hour or 0)) * Decimal(str(duration_hrs))
+            booking.booking_date = new_date
+            booking.start_time = new_start
+            booking.end_time = new_end
+
+        else:
+            if modify_in.booking_date:
+                booking.booking_date = modify_in.booking_date
+            if modify_in.time_slot_id:
+                booking.time_slot_id = modify_in.time_slot_id
+            if modify_in.start_time:
+                booking.start_time = modify_in.start_time
+            if modify_in.end_time:
+                booking.end_time = modify_in.end_time
 
         # Calculate differential against user wallet
         price_diff = Decimal(str(new_price)) - booking.amount
@@ -808,6 +877,8 @@ async def get_booking_ical(
     booking = result.scalar_one_or_none()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    if current_user.role != "ADMIN" and booking.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     st = booking.start_time or (booking.time_slot.start_time if booking.time_slot else time(9, 0))
     et = booking.end_time or (booking.time_slot.end_time if booking.time_slot else time(18, 0))
@@ -924,6 +995,8 @@ async def cancel_booking(
 async def get_my_bookings(
     search: Optional[str] = None,
     status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 200,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -950,7 +1023,7 @@ async def get_my_bookings(
                 cast(Booking.booking_date, String).ilike(like),
             )
         )
-    result = await db.execute(query.order_by(Booking.created_at.desc()))
+    result = await db.execute(query.order_by(Booking.created_at.desc()).offset(skip).limit(limit))
     bookings = result.scalars().all()
     return [map_booking_to_detail(b) for b in bookings]
 
@@ -977,22 +1050,27 @@ async def get_all_bookings_admin(
         query = query.where(Booking.booking_type == booking_type)
     if status:
         query = query.where(Booking.status == status)
-    
+    if search:
+        like = f"%{search}%"
+        query = query.join(User, Booking.user_id == User.id).outerjoin(
+            Location, Booking.location_id == Location.id
+        ).outerjoin(Branch, Booking.branch_id == Branch.id).where(
+            or_(
+                User.name.ilike(like),
+                User.email.ilike(like),
+                Location.name.ilike(like),
+                Branch.name.ilike(like),
+                cast(Booking.id, String).ilike(like),
+            )
+        )
+
+    # Pagination must run after every filter (including search) so a page
+    # reflects the full filtered result set instead of truncating first.
     query = query.order_by(Booking.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
     bookings = result.scalars().all()
-    
-    mapped = [map_booking_to_detail(b) for b in bookings]
-    if search:
-        search_lower = search.lower()
-        mapped = [
-            m for m in mapped if 
-            (m.user_name and search_lower in m.user_name.lower()) or 
-            (m.user_email and search_lower in m.user_email.lower()) or
-            (m.location_name and search_lower in m.location_name.lower()) or
-            (m.branch_name and search_lower in m.branch_name.lower())
-        ]
-    return mapped
+
+    return [map_booking_to_detail(b) for b in bookings]
 
 @router.get("/{booking_id}", response_model=BookingDetailResponse)
 async def get_booking_by_id(

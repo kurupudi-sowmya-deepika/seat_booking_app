@@ -1,31 +1,82 @@
-import React, { useState } from 'react';
-import { 
-  Settings, ShieldCheck, CreditCard, Bell, 
-  Clock, Database, CheckCircle2, Save, Sparkles
+import React, { useState, useEffect } from 'react';
+import {
+  Settings, ShieldCheck, CreditCard, Bell,
+  Clock, Database, CheckCircle2, Save, Sparkles, AlertCircle, Loader2
 } from 'lucide-react';
+import api from '../../services/api';
+
+// Maps this component's camelCase field names to the API's snake_case ones.
+const toApiPayload = (s: typeof DEFAULT_SETTINGS) => ({
+  company_name: s.companyName,
+  support_email: s.supportEmail,
+  currency: s.currency,
+  max_advance_booking_days: s.maxAdvanceBookingDays,
+  cancellation_window_hours: s.cancellationWindowHours,
+  refund_percentage: s.refundPercentage,
+  enable_entra_id_sso: s.enableEntraIdSSO,
+  enable_local_auth: s.enableLocalAuth,
+  openai_assistant_enabled: s.openAiAssistant,
+  daily_reminder_email: s.dailyReminderEmail,
+});
+
+const fromApiResponse = (r: any) => ({
+  companyName: r.company_name,
+  supportEmail: r.support_email,
+  currency: r.currency,
+  maxAdvanceBookingDays: r.max_advance_booking_days,
+  cancellationWindowHours: r.cancellation_window_hours,
+  refundPercentage: r.refund_percentage,
+  enableEntraIdSSO: r.enable_entra_id_sso,
+  enableLocalAuth: r.enable_local_auth,
+  stripeWebhookLive: true, // read-only/informational - not a persisted toggle
+  openAiAssistant: r.openai_assistant_enabled,
+  dailyReminderEmail: r.daily_reminder_email,
+});
+
+const DEFAULT_SETTINGS = {
+  companyName: 'Acme Enterprise Workspaces',
+  supportEmail: 'workspace-support@acme.com',
+  currency: 'INR (₹)',
+  maxAdvanceBookingDays: 30,
+  cancellationWindowHours: 2,
+  refundPercentage: 100,
+  enableEntraIdSSO: true,
+  enableLocalAuth: true,
+  stripeWebhookLive: true,
+  openAiAssistant: true,
+  dailyReminderEmail: true,
+};
 
 export const AdminSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  const [settings, setSettings] = useState({
-    companyName: 'Acme Enterprise Workspaces',
-    supportEmail: 'workspace-support@acme.com',
-    currency: 'INR (₹)',
-    maxAdvanceBookingDays: 30,
-    cancellationWindowHours: 2,
-    refundPercentage: 100,
-    enableEntraIdSSO: true,
-    enableLocalAuth: true,
-    stripeWebhookLive: true,
-    geminiAiAssistant: true,
-    dailyReminderEmail: true,
-  });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    api.get('/admin/settings')
+      .then(res => setSettings(fromApiResponse(res.data)))
+      .catch(() => setError('Failed to load saved settings - showing defaults.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaving(true);
+    setError('');
+    try {
+      const res = await api.put('/admin/settings', toApiPayload(settings));
+      setSettings(fromApiResponse(res.data));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to save settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -47,6 +98,12 @@ export const AdminSettings: React.FC = () => {
             Settings saved successfully!
           </div>
         )}
+        {error && (
+          <div className="flex items-center gap-2 px-3.5 py-1.5 bg-red-50 text-red-700 rounded-xl text-xs font-bold border border-red-200">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -57,7 +114,7 @@ export const AdminSettings: React.FC = () => {
             { id: 'policies', label: 'Booking & Cancellation', icon: <Clock size={18} /> },
             { id: 'auth', label: 'SSO & Authentication', icon: <ShieldCheck size={18} /> },
             { id: 'payments', label: 'Billing & Stripe', icon: <CreditCard size={18} /> },
-            { id: 'ai', label: 'Gemini AI Concierge', icon: <Sparkles size={18} /> },
+            { id: 'ai', label: 'OpenAI Concierge', icon: <Sparkles size={18} /> },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -76,6 +133,11 @@ export const AdminSettings: React.FC = () => {
 
         {/* Content Panel */}
         <div className="md:col-span-3 bg-white rounded-3xl border border-gray-200/80 p-6 sm:p-8 shadow-sm">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-gray-400 gap-2">
+              <Loader2 size={20} className="animate-spin" /> Loading settings...
+            </div>
+          ) : (
           <form onSubmit={handleSave} className="space-y-6">
             {activeTab === 'general' && (
               <div className="space-y-5">
@@ -231,7 +293,7 @@ export const AdminSettings: React.FC = () => {
             {activeTab === 'ai' && (
               <div className="space-y-5">
                 <h3 className="text-base font-black text-gray-900 border-b border-gray-100 pb-3">
-                  Google Gemini AI Workspace Assistant
+                  OpenAI (GPT-5.4 Mini) Workspace Assistant
                 </h3>
 
                 <div className="space-y-4">
@@ -242,8 +304,8 @@ export const AdminSettings: React.FC = () => {
                     </div>
                     <input
                       type="checkbox"
-                      checked={settings.geminiAiAssistant}
-                      onChange={(e) => setSettings({ ...settings, geminiAiAssistant: e.target.checked })}
+                      checked={settings.openAiAssistant}
+                      onChange={(e) => setSettings({ ...settings, openAiAssistant: e.target.checked })}
                       className="w-5 h-5 text-[#007bc0] rounded border-gray-300 focus:ring-[#007bc0]"
                     />
                   </div>
@@ -261,13 +323,15 @@ export const AdminSettings: React.FC = () => {
             <div className="pt-4 border-t border-gray-100 flex items-center justify-end">
               <button
                 type="submit"
-                className="flex items-center gap-2 px-6 py-2.5 bg-[#007bc0] hover:bg-[#005a8c] text-white rounded-xl font-bold text-sm shadow-md transition shadow-[#007bc0]/20"
+                disabled={saving}
+                className="flex items-center gap-2 px-6 py-2.5 bg-[#007bc0] hover:bg-[#005a8c] text-white rounded-xl font-bold text-sm shadow-md transition shadow-[#007bc0]/20 disabled:opacity-60"
               >
-                <Save size={16} />
-                Save System Configuration
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {saving ? 'Saving...' : 'Save System Configuration'}
               </button>
             </div>
           </form>
+          )}
         </div>
       </div>
     </div>

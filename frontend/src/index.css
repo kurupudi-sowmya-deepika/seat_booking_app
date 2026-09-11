@@ -1,46 +1,72 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  /* Bosch Color Palette */
-  --bg-color: #f4f7f9; /* Clean light grey background */
-  --surface-color: #ffffff; 
-  --surface-color-light: #f8f9fa; 
-  
-  --primary-color: #007bc0; /* Bosch Blue */
-  --primary-hover: #00649c; 
+  /* Bosch Light design tokens - see /design.md */
+  --bg-color: #ffffff; /* neutral */
+  --surface-color: #ffffff; /* surface */
+  --surface-color-light: #f8f9fa;
+
+  --primary-color: #007bc0; /* primary - Bosch blue: links, focus, hover on primary actions */
+  --primary-hover: #005f99;
   --primary-glow: rgba(0, 123, 192, 0.3);
 
-  --secondary-color: #e20015; /* Bosch Red */
-  
-  --text-primary: #212224; /* Dark grey for primary text */
-  --text-secondary: #71767c; 
-  --text-muted: #94999f; 
-  
-  --danger-color: #e20015; 
-  --warning-color: #f59e0b; 
-  --success-color: #10b981; 
-  
-  --border-color: rgba(0, 0, 0, 0.08);
-  
+  --secondary-color: #000000; /* secondary - black: headings, body text, primary-button fill */
+
+  --tertiary-color: #e5e7eb; /* tertiary - borders, dividers, chips */
+
+  --text-primary: #000000; /* on-surface */
+  --text-secondary: #4b5563; /* not in the base palette - a practical mid-gray for secondary copy */
+  --text-muted: #6b7280; /* muted, see design.md */
+
+  --danger-color: #d00000; /* error - validation and destructive states, used sparingly */
+  --warning-color: #f59e0b;
+  --success-color: #10b981;
+
+  --border-color: #e5e7eb; /* tertiary */
+
   /* Seat Colors */
   --seat-available: #10b981;
   --seat-booked: #ef4444;
-  --seat-selected: #3b82f6;
+  --seat-selected: #007bc0;
   --seat-disabled: #475569;
 
-  /* Typography */
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  
-  /* Borders & Shadows */
-  --border-radius: 12px;
-  --border-radius-sm: 8px;
-  --border-radius-lg: 16px;
-  --border-color: rgba(0, 0, 0, 0.08);
+  /* Typography - Boschsans, with realistic fallbacks (proprietary font, not webfont-hosted) */
+  --font-family: 'Boschsans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  /* Shape scale - none/sm/md/lg/xl/full, see design.md */
+  --radius-none: 0px;
+  --radius-sm: 4px;  /* buttons, inputs */
+  --radius-md: 8px;  /* cards */
+  --radius-lg: 12px; /* large panels, modals */
+  --radius-xl: 16px; /* hero/feature surfaces */
+  --radius-full: 9999px; /* chips, pills */
+
+  /* Legacy aliases kept for existing components */
+  --border-radius: var(--radius-md);
+  --border-radius-sm: var(--radius-sm);
+  --border-radius-lg: var(--radius-lg);
+  --border-radius-xl: var(--radius-xl);
+
+  /* Spacing scale - 8px-based, see design.md */
+  --space-xs: 8px;
+  --space-sm: 16px;
+  --space-md: 32px;
+  --space-lg: 56px;
+  --space-xl: 80px;
+
+  /* Elevation is intentionally flat - see design.md. Use sparingly. */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
   --shadow-glow: 0 0 15px var(--primary-glow);
+}
+
+/* Base type/spacing scale multiplier: Tailwind's utility values (text-xs/sm/base,
+   p-*, gap-*, space-y-*, etc.) are rem-based, so bumping the root font-size scales
+   font sizes AND spacing app-wide together, proportionally, without having to touch
+   every component. See /design.md Typography. */
+html {
+  font-size: 17.5px; /* was the 16px browser default */
 }
 
 body {
@@ -66,50 +92,72 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* Button styles */
+/* Button styles - three roles only: primary, secondary, link. See design.md. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--border-radius-sm);
-  font-weight: 500;
+  gap: 0.5rem;
+  min-width: 120px;
+  height: 40px;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.9375rem;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  border: 1px solid transparent;
   font-family: var(--font-family);
 }
 
+/* Primary: black fill at rest, blue on hover - the one strongest action per view */
 .btn-primary {
+  background-color: var(--secondary-color);
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
   background-color: var(--primary-color);
-  color: white;
-  box-shadow: 0 4px 14px 0 rgba(0, 123, 192, 0.2);
 }
 
-.btn-primary:hover {
-  background-color: var(--primary-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(0, 123, 192, 0.3);
+.btn-primary:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
 }
 
+/* Secondary: white fill, black border/text, tertiary gray on hover */
 .btn-secondary {
-  background-color: transparent;
+  background-color: var(--surface-color);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--text-primary);
 }
 
 .btn-secondary:hover {
-  background-color: var(--surface-color-light);
+  background-color: var(--tertiary-color);
+}
+
+/* Link: text-only, blue, for low-emphasis actions */
+.btn-link {
+  background: transparent;
+  color: var(--primary-color);
+  border: none;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
 }
 
 .btn-microsoft {
-  background-color: var(--primary-color);
+  background-color: var(--secondary-color);
   color: white;
   border: none;
 }
 
 .btn-microsoft:hover {
-  background-color: var(--primary-hover);
+  background-color: var(--primary-color);
 }
 
 /* Forms */
@@ -140,7 +188,7 @@ body {
 .input-field:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 /* Layouts */
@@ -177,8 +225,8 @@ body {
   max-width: 1000px;
   min-height: 500px;
   background-color: white;
-  border-radius: 20px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);
   overflow: hidden;
   margin: 2rem;
 }
@@ -298,7 +346,7 @@ body {
   background-color: var(--seat-selected);
   color: white;
   border: 1px solid var(--primary-color);
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 15px var(--primary-glow);
 }
 
 .seat.disabled {
@@ -338,7 +386,7 @@ body {
 }
 
 .bosch-nav-link {
-  color: #212224;
+  color: var(--text-primary);
   font-weight: 500;
   padding: 0.5rem 1rem;
   transition: all 0.2s;

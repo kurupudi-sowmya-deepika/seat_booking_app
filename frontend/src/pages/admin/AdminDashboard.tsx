@@ -38,7 +38,7 @@ export const AdminDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-8 font-['Inter']">
+    <div className="space-y-8">
       {/* Page Title */}
       <div>
         <h1 className="text-2xl font-bold text-gray-800">Administrator Command Center</h1>

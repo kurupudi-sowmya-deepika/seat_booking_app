@@ -36,7 +36,12 @@ async def run_advanced_tests():
 
         test_branch = branches[0]
         test_loc = locs[0]
-        test_room = rooms[0] if rooms else None
+        # Must be a MEETING_ROOM in test_branch specifically - create_booking rejects a
+        # room/branch mismatch or a room whose room_type doesn't match the booking_type.
+        test_room = next(
+            (r for r in rooms if r.get("room_type") == "MEETING_ROOM" and r.get("branch_id") == test_branch["id"]),
+            None
+        )
 
         # 3. Test Visitor Management
         print("\n[2] Testing Visitor Pre-registration, Check-in & Check-out...")
@@ -122,6 +127,10 @@ async def run_advanced_tests():
             assert "BEGIN:VCALENDAR" in ical_res.text
             assert "UID:" in ical_res.text
             print(f"[OK] Outlook .ics generated ({len(ical_res.text)} bytes). Content snippet: {ical_res.text[:80]}...")
+
+            # Clean up so re-running this script doesn't collide with the fixed test slot above
+            cancel_res = await client.post(f"/api/bookings/{rm_booking_id}/cancel", headers=user_headers)
+            assert cancel_res.status_code == 200, f"Room booking cleanup cancel failed: {cancel_res.text}"
 
         # 8. Test Admin Reports & Revenue Analytics
         print("\n[7] Testing Admin Revenue Reports & Analytics...")

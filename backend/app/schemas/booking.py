@@ -23,6 +23,15 @@ class BookingCreate(BaseModel):
     number_of_people: Optional[int] = 1
     additional_users: Optional[List[Dict[str, str]]] = None  # List of {name, email}
 
+    # Meeting/conference room metadata
+    title: Optional[str] = None
+    purpose: Optional[str] = None
+    participant_emails: Optional[List[str]] = None
+
+    # Validation-only: not persisted. If set, the chosen room must have all of these
+    # facilities or the booking is rejected (used by the chatbot booking flow).
+    required_amenities: Optional[List[str]] = None
+
 class BookingModifyRequest(BaseModel):
     booking_date: Optional[date] = None
     seat_id: Optional[UUID] = None
@@ -52,8 +61,11 @@ class BookingResponse(BaseModel):
     amount: float
     number_of_people: Optional[int] = 1
     additional_users: Optional[List[Dict[str, str]]] = None
+    title: Optional[str] = None
+    purpose: Optional[str] = None
+    participant_emails: Optional[List[str]] = None
     created_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 

@@ -17,6 +17,75 @@ The application uses **Microsoft Azure AD / Microsoft Entra ID** for secure empl
 
 ---
 
+# Design Tokens — "Bosch Light"
+
+This is the canonical token set for the application. Every color, type size, radius, and spacing value used anywhere in the product should trace back to one of these — no one-off hex codes or ad-hoc pixel values in new work.
+
+## Color
+
+| Token       | Hex       | Role                                                              |
+| ----------- | --------- | ------------------------------------------------------------------ |
+| `primary`   | `#007BC0` | Bosch blue — links, focus states, hover on primary actions, the one strong color signal in the system |
+| `secondary` | `#000000` | Black — headings, body copy, and the fill for the strongest interactive element (the primary button) |
+| `tertiary`  | `#E5E7EB` | Soft gray — borders, dividers, low-emphasis surfaces (chips, secondary-button hover) |
+| `neutral`   | `#FFFFFF` | Page background |
+| `surface`   | `#FFFFFF` | Component background (cards, dialogs, forms) |
+| `on-surface`| `#000000` | Text/icon color on light surfaces |
+| `error`     | `#D00000` | Validation and destructive states only — used sparingly so blue stays the dominant accent |
+| `muted`     | `#6B7280` | Practical addition, not in the base palette: secondary/caption copy where pure black is too heavy |
+
+Bosch red is **not** part of this palette. Where earlier drafts of this document called for red as a "brand accent," that role is now served by restraint and black/blue contrast instead — see Design Principles.
+
+## Typography
+
+Single family — **Boschsans**, falling back to Helvetica Neue, Helvetica, Arial, sans-serif. Letter-spacing stays at `0px` throughout; the voice is direct and technical, not decorative.
+
+| Style            | Size  | Weight | Line height |
+| ---------------- | ----: | -----: | ----------: |
+| Headline / Display| 64px |    700 |      76.8px |
+| Headline / LG     | 45px |    700 |         54px |
+| Headline / MD     | 32px |    700 |         38px |
+| Headline / SM     | 23px |    600 |         28px |
+| Body / LG         | 18px |    400 |         27px |
+| Body / MD         | 16px |    400 |         24px |
+| Body / SM         | 14px |    400 |         21px |
+| Label / LG        | 16px |    400 |         24px |
+| Label / MD        | 14px |    400 |         21px |
+| Label / SM        | 12px |    400 |         18px |
+| Caption           | 12px |    400 |         18px |
+
+## Shape
+
+| Token  | Value  | Use                                    |
+| ------ | -----: | --------------------------------------- |
+| `none` |   `0px`| Link buttons — no container to round |
+| `sm`   |   `4px`| Buttons, inputs — small, engineered |
+| `md`   |   `8px`| Cards |
+| `lg`   |  `12px`| Large panels, modals |
+| `xl`   |  `16px`| Hero/feature surfaces |
+| `full` | `9999px`| Chips, pills |
+
+## Spacing
+
+An 8px-based stepped scale — `xs` 8px, `sm` 16px, `md` 32px, `lg` 56px, `xl` 80px. Use it for gaps between sections and major layout rhythm; component-internal padding follows the component tokens below.
+
+## Component Tokens
+
+| Component | Spec |
+| --- | --- |
+| **Button — primary** | `secondary` (black) fill, white text, `label-lg`, `sm` radius, `8px 16px` padding, 40px height. Hover → `primary` (blue) fill. |
+| **Button — secondary** | `surface` (white) fill, black text, `label-lg`, `sm` radius, `8px 16px` padding, 40px height. Hover → `tertiary` fill. |
+| **Button — link** | `surface` fill, `primary` (blue) text, `label-lg`, no radius, no padding. Text-only, for low-emphasis actions. |
+| **Card** | `surface` fill, `on-surface` text, `md` radius, `16px` padding. |
+| **Input** | `surface` fill, `on-surface` text, `body-md`, `sm` radius, `8px 16px` padding. |
+| **Chip** | `tertiary` fill, `on-surface` text, `label-md`, `full` radius, `4px 12px` padding. |
+
+## Elevation
+
+The system is intentionally flat. Hierarchy comes from white-on-white layering, `tertiary` borders, bold type, and black-on-white contrast — not shadow depth. Where a shadow is unavoidable (a floating panel over page content), keep it a single soft, low-opacity layer; never stack shadows or use color-tinted glows.
+
+---
+
 ## Design Goals
 
 * Simple and professional enterprise experience
@@ -46,20 +115,21 @@ Use the official Bosch corporate logo as the primary brand element.
 
 ---
 
-## Corporate Ribbon
+## Corporate Ribbon (Supergraphic)
 
-Use the provided multi-color Bosch ribbon as a page header or top accent bar.
+The multi-color Bosch supergraphic bar is the application's one signature visual element — everything else in "Bosch Light" is deliberately quiet (flat, black/white/blue), so this is where the brand gets to be loud. It appears as a full-width strip at the very top of every top-level screen: login, the employee portal, and the admin portal alike. Implemented as a CSS gradient (six equal segments) rather than a raster image, so it stays crisp at any width.
 
 ### Purpose
 
-* Reinforce Bosch corporate identity
-* Provide visual distinction
-* Maintain consistency with Bosch branding
+* The one place brand identity is allowed to be colorful
+* Reinforces that the employee and admin portals are the same product
+* Provides a consistent visual anchor independent of page content
 
 ### Placement
 
-* Full-width across the top of the page
-* Recommended height: `24px–40px`
+* Full-width, top of viewport, above any header/nav chrome
+* Height: `8px` (thin — a signature accent, not a banner)
+* Present on: Login, `MainLayout` (employee portal), `AdminLayout` (admin portal)
 
 ---
 
@@ -116,10 +186,10 @@ Use a light blue-gray background:
 background: #F4F8FB;
 ```
 
-The panel should contain subtle decorative circular elements using low-opacity Bosch blue.
+The panel should contain subtle decorative circular elements using low-opacity Bosch blue (`primary` at ~12% opacity).
 
 ```css
-background: rgba(0, 132, 198, 0.12);
+background: rgba(0, 123, 192, 0.12);
 ```
 
 ---
@@ -149,12 +219,12 @@ Alternative compact representation:
 Bosch Seat Booking App
 ```
 
-Typography:
+Typography (headline-lg/display):
 
-* Font: Segoe UI
-* Weight: Medium / SemiBold
-* Desktop size: `40px–48px`
-* Color: `#1F2937`
+* Font: Boschsans
+* Weight: 700
+* Desktop size: `45px–64px`
+* Color: `#000000` (on-surface)
 
 ---
 
@@ -166,20 +236,12 @@ Display:
 WORKSPACE MANAGEMENT
 ```
 
-Style:
-
-* Bosch blue background
-* White text
-* Rounded pill
-* Font size: `12px–13px`
-* Font weight: `600`
-
-Example:
+This is one of the few places the app spends its accent: a `primary`-filled pill on the hero, distinct from the neutral `tertiary` chips used for status elsewhere in the app.
 
 ```css
-background: #0084C6;
+background: #007BC0; /* primary */
 color: #FFFFFF;
-border-radius: 999px;
+border-radius: 9999px; /* full */
 ```
 
 ---
@@ -240,12 +302,12 @@ Welcome to
 Bosch Seat Booking App
 ```
 
-Typography:
+Typography (headline-md):
 
-* Font: Segoe UI
-* Weight: Medium
-* Size: `36px–44px`
-* Color: `#1F2937`
+* Font: Boschsans
+* Weight: 700
+* Size: `32px–45px`
+* Color: `#000000` (on-surface)
 
 ---
 
@@ -296,11 +358,13 @@ The button should use the Microsoft logo/icon.
 
 ### Colors
 
+This is the login page's one primary action, so it follows the `button-primary` token: black fill at rest, blue on hover — the same hierarchy every primary button in the app uses.
+
 | Property   | Value     |
 | ---------- | --------- |
-| Background | `#0084C6` |
+| Background | `#000000` (secondary) |
 | Text       | `#FFFFFF` |
-| Hover      | `#006FA8` |
+| Hover      | `#007BC0` (primary) |
 | Disabled   | `#9CA3AF` |
 
 ### Dimensions
@@ -668,20 +732,17 @@ Admin
 
 # Color Palette
 
-## Bosch Brand Colors
+See **Design Tokens — "Bosch Light"** above for the canonical set. Quick reference:
 
 | Color      | Hex       | Usage                  |
 | ---------- | --------- | ---------------------- |
-| Bosch Red  | `#EA0016` | Brand accent           |
-| Bosch Blue | `#0084C6` | Primary actions        |
-| Dark Blue  | `#006FA8` | Hover state            |
-| Light Blue | `#EAF4FA` | Backgrounds            |
-| Light Gray | `#F3F3F3` | Application background |
-| Dark Text  | `#1F2937` | Primary text           |
-| Gray Text  | `#6B7280` | Secondary text         |
-| White      | `#FFFFFF` | Cards / surfaces       |
+| Primary (Bosch Blue) | `#007BC0` | Links, focus, hover on primary actions — the one strong accent |
+| Secondary (Black)    | `#000000` | Headings, body text, primary-button fill |
+| Tertiary (Gray)      | `#E5E7EB` | Borders, dividers, chips |
+| Neutral / Surface    | `#FFFFFF` | Page and component backgrounds |
+| Error                | `#D00000` | Validation and destructive states only |
 
-Bosch red should primarily be used as a **brand accent**, while Bosch blue should remain the primary application action color.
+There is no red "brand accent" in this palette — destructive actions use `error`, sparingly, and everything else stays black, white, or blue.
 
 ---
 
@@ -690,47 +751,49 @@ Bosch red should primarily be used as a **brand accent**, while Bosch blue shoul
 Primary font:
 
 ```text
-Segoe UI
+Boschsans
 ```
 
 Fallback:
 
 ```css
 font-family:
-'Segoe UI',
-Arial,
+'Boschsans',
+'Helvetica Neue',
 Helvetica,
+Arial,
 sans-serif;
 ```
 
-## Text Styles
+Letter-spacing is `0px` across every style — see the full type scale in Design Tokens above (headline-display through caption).
 
-| Element           |    Size |  Weight |
-| ----------------- | ------: | ------: |
-| Application Title | 40–48px | 500–600 |
-| Page Heading      | 32–36px | 500–600 |
-| Section Heading   | 20–24px |     600 |
-| Body              | 14–16px |     400 |
-| Subtitle          | 16–18px |     400 |
-| Button            | 16–18px |     600 |
-| Badge             | 12–13px |     600 |
-| Footer            |    12px |     400 |
+## Text Styles (legacy names → token)
+
+| Element           | Token             |    Size |  Weight |
+| ----------------- | ----------------- | ------: | ------: |
+| Application Title | headline-display   |    64px |     700 |
+| Page Heading      | headline-lg/md      | 32–45px | 700 |
+| Section Heading   | headline-sm        |    23px |     600 |
+| Body              | body-md            |    16px |     400 |
+| Subtitle          | body-lg            |    18px |     400 |
+| Button            | label-lg           |    16px |     400 |
+| Badge / Chip      | label-md           |    14px |     400 |
+| Footer / Caption  | caption            |    12px |     400 |
 
 ---
 
 # Cards and Surfaces
 
-Application cards should follow a consistent visual style.
-
-Recommended:
+Application cards follow the `card` component token: flat, bordered, minimally shadowed.
 
 ```css
-background: #FFFFFF;
-border-radius: 12px;
-box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+background: #FFFFFF;   /* surface */
+border: 1px solid #E5E7EB; /* tertiary */
+border-radius: 8px;    /* md */
+padding: 16px;
 ```
 
-Avoid excessive shadows.
+Avoid heavy or stacked shadows — see Elevation in Design Tokens. Hierarchy comes from the border and bold type, not depth.
 
 Cards should primarily be used for:
 
@@ -744,13 +807,15 @@ Cards should primarily be used for:
 
 # Buttons
 
+Three button roles, per the Design Tokens component table — never invent a fourth.
+
 ## Primary Button
 
 ```text
 Book Now
 ```
 
-Bosch blue background.
+Black (`secondary`) fill, white text, `sm` (4px) radius, 40px height. Hover → blue (`primary`) fill. This is the strongest action in a flow — one per view.
 
 ## Secondary Button
 
@@ -758,7 +823,15 @@ Bosch blue background.
 View Details
 ```
 
-White background with Bosch blue border.
+White (`surface`) fill, black text and border, same radius and height as primary. Hover → `tertiary` gray fill.
+
+## Link Button
+
+```text
+Manage Notification Settings
+```
+
+Text-only, blue (`primary`), no fill or border — for low-emphasis actions like settings or policy links.
 
 ## Destructive Button
 
@@ -766,7 +839,7 @@ White background with Bosch blue border.
 Cancel Booking
 ```
 
-Use Bosch red carefully for destructive actions.
+Same shape as the secondary button, but text and border in `error` (`#D00000`) — used sparingly so it doesn't compete with blue as the system's one loud color.
 
 ---
 

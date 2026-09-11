@@ -29,8 +29,10 @@ class Settings(BaseSettings):
     DEMO_INITIAL_CREDIT_EMAIL: str = "sdkurupudi@intuceo.com"
     DEMO_INITIAL_CREDIT_AMOUNT: float = 10000.0
     
-    # AI Chatbot
-    GEMINI_API_KEY: str = ""
+    # AI Chatbot (OpenAI, or any OpenAI-compatible gateway - e.g. OpenRouter)
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-5.4-mini"
+    OPENAI_BASE_URL: str = ""  # leave blank for api.openai.com; set for a compatible gateway
     
     # Entra ID
     ENTRA_TENANT_ID: str = ""

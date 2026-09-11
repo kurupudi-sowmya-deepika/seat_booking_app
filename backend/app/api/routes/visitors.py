@@ -40,6 +40,8 @@ def map_visitor(v: Visitor) -> VisitorResponse:
 async def get_visitors(
     branch_id: Optional[UUID] = None,
     status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -47,17 +49,17 @@ async def get_visitors(
         selectinload(Visitor.host),
         selectinload(Visitor.branch)
     )
-    
+
     if current_user.role != "ADMIN":
         query = query.where(Visitor.host_user_id == current_user.id)
     else:
         if branch_id:
             query = query.where(Visitor.branch_id == branch_id)
-            
+
     if status:
         query = query.where(Visitor.status == status)
-        
-    query = query.order_by(Visitor.visit_date.desc(), Visitor.created_at.desc())
+
+    query = query.order_by(Visitor.visit_date.desc(), Visitor.created_at.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
     visitors = result.scalars().all()
     return [map_visitor(v) for v in visitors]
@@ -102,6 +104,30 @@ async def create_visitor(
     )
     return map_visitor(res.scalar_one())
 
+@router.put("/{visitor_id}", response_model=VisitorResponse)
+async def update_visitor(
+    visitor_id: UUID,
+    item_in: VisitorUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = select(Visitor).options(selectinload(Visitor.host), selectinload(Visitor.branch)).where(Visitor.id == visitor_id)
+    if current_user.role != "ADMIN":
+        query = query.where(Visitor.host_user_id == current_user.id)
+
+    res = await db.execute(query)
+    visitor = res.scalar_one_or_none()
+    if not visitor:
+        raise HTTPException(status_code=404, detail="Visitor pass not found")
+
+    update_data = item_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(visitor, field, value)
+
+    await db.commit()
+    await db.refresh(visitor)
+    return map_visitor(visitor)
+
 @router.post("/{visitor_id}/check-in", response_model=VisitorResponse)
 async def check_in_visitor(
     visitor_id: UUID,
@@ -109,11 +135,14 @@ async def check_in_visitor(
     current_user: User = Depends(get_current_user)
 ):
     query = select(Visitor).options(selectinload(Visitor.host), selectinload(Visitor.branch)).where(Visitor.id == visitor_id)
+    if current_user.role != "ADMIN":
+        query = query.where(Visitor.host_user_id == current_user.id)
+
     res = await db.execute(query)
     visitor = res.scalar_one_or_none()
     if not visitor:
         raise HTTPException(status_code=404, detail="Visitor not found")
-        
+
     visitor.status = VisitorStatus.CHECKED_IN
     visitor.check_in_time = datetime.utcnow()
     
@@ -138,11 +167,14 @@ async def check_out_visitor(
     current_user: User = Depends(get_current_user)
 ):
     query = select(Visitor).options(selectinload(Visitor.host), selectinload(Visitor.branch)).where(Visitor.id == visitor_id)
+    if current_user.role != "ADMIN":
+        query = query.where(Visitor.host_user_id == current_user.id)
+
     res = await db.execute(query)
     visitor = res.scalar_one_or_none()
     if not visitor:
         raise HTTPException(status_code=404, detail="Visitor not found")
-        
+
     visitor.status = VisitorStatus.CHECKED_OUT
     visitor.check_out_time = datetime.utcnow()
     await db.commit()

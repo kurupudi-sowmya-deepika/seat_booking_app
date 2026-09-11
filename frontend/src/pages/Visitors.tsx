@@ -128,7 +128,7 @@ export const Visitors: React.FC = () => {
   });
 
   return (
-    <div className="space-y-8 font-['Inter']">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -446,7 +446,7 @@ export const Visitors: React.FC = () => {
       {/* Digital Badge Modal */}
       {selectedPass && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 text-center relative font-['Inter']">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 text-center relative">
             <button
               onClick={() => setSelectedPass(null)}
               className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-gray-700 rounded-full"

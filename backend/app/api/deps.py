@@ -3,7 +3,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Annotated
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 
 from app.core.config import settings
 from app.db.database import get_db

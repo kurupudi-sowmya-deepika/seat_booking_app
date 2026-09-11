@@ -196,7 +196,7 @@ export default function RoomSlotBooking({ kind }: { kind: RoomKind }) {
   };
 
   return (
-    <div className="w-full space-y-8 font-['Inter']">
+    <div className="w-full space-y-8">
       <div className="flex items-center gap-3">
         <span className="flex h-8 w-8 items-center justify-center rounded-sm bg-[#007bc0] text-white">
           <Building2 size={16} />

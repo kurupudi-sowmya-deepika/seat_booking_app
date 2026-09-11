@@ -9,9 +9,46 @@ from app.models.user import User
 from app.models.location import Location, Branch, Room, Seat, DayPass
 from app.models.booking import Booking, BookingStatus
 from app.models.wallet import Wallet, CreditTransaction
+from app.models.system_settings import SystemSettings
+from app.schemas.system_settings import SystemSettingsResponse, SystemSettingsUpdate
 from app.api.deps import get_current_admin
 
 router = APIRouter()
+
+
+async def _get_or_create_settings(db: AsyncSession) -> SystemSettings:
+    """There's exactly one settings row app-wide; create it with defaults on
+    first access rather than requiring a seed/migration data step."""
+    result = await db.execute(select(SystemSettings).order_by(SystemSettings.created_at.asc()).limit(1))
+    settings = result.scalar_one_or_none()
+    if not settings:
+        settings = SystemSettings()
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    return settings
+
+
+@router.get("/settings", response_model=SystemSettingsResponse)
+async def get_system_settings(
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    return await _get_or_create_settings(db)
+
+
+@router.put("/settings", response_model=SystemSettingsResponse)
+async def update_system_settings(
+    settings_in: SystemSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    settings = await _get_or_create_settings(db)
+    for field, value in settings_in.model_dump(exclude_unset=True).items():
+        setattr(settings, field, value)
+    await db.commit()
+    await db.refresh(settings)
+    return settings
 
 @router.get("/stats")
 async def get_admin_dashboard_stats(
@@ -59,30 +96,36 @@ async def get_admin_dashboard_stats(
     )).scalar_one()
     occupancy_rate = round((today_seat_bookings / max(1, total_seats)) * 100, 1)
 
-    # 5. Recent 7-day bookings trend
-    trend = []
-    for i in range(6, -1, -1):
-        d = today - timedelta(days=i)
-        cnt = (await db.execute(
-            select(func.count(Booking.id)).where(Booking.booking_date == d)
-        )).scalar_one()
-        trend.append({
-            "date": d.strftime("%b %d"),
-            "bookings": cnt
-        })
+    # 5. Recent 7-day bookings trend (single grouped query instead of one per day)
+    range_start = today - timedelta(days=6)
+    trend_res = await db.execute(
+        select(Booking.booking_date, func.count(Booking.id))
+        .where(Booking.booking_date >= range_start, Booking.booking_date <= today)
+        .group_by(Booking.booking_date)
+    )
+    trend_counts = dict(trend_res.all())
+    trend = [
+        {"date": (range_start + timedelta(days=i)).strftime("%b %d"),
+         "bookings": trend_counts.get(range_start + timedelta(days=i), 0)}
+        for i in range(7)
+    ]
 
-    # 6. Branch distribution
+    # 6. Branch distribution (single grouped query instead of one per branch)
     branches_res = await db.execute(select(Branch).limit(5))
     branches = branches_res.scalars().all()
-    popular_branches = []
-    for b in branches:
-        b_cnt = (await db.execute(
-            select(func.count(Booking.id)).where(Booking.branch_id == b.id)
-        )).scalar_one()
-        popular_branches.append({
-            "name": b.name,
-            "bookings": b_cnt
-        })
+    branch_ids = [b.id for b in branches]
+    branch_counts: Dict[Any, int] = {}
+    if branch_ids:
+        counts_res = await db.execute(
+            select(Booking.branch_id, func.count(Booking.id))
+            .where(Booking.branch_id.in_(branch_ids))
+            .group_by(Booking.branch_id)
+        )
+        branch_counts = dict(counts_res.all())
+    popular_branches = [
+        {"name": b.name, "bookings": branch_counts.get(b.id, 0)}
+        for b in branches
+    ]
 
     return {
         "total_users": total_users,

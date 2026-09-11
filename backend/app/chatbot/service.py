@@ -1,18 +1,30 @@
-import os
-import json
-from typing import List, Dict, Any
+import logging
+from typing import Any, Dict, List
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from google import genai
-from google.genai import types
 
 from app.models.user import User
 from app.chatbot.tools import ChatbotTools
 from app.chatbot.schemas import ChatResponse
+from app.chatbot.openai_service import (
+    OpenAIConfigError,
+    build_tool_schema,
+    get_client,
+    run_agentic_chat,
+)
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 # In-memory storage for conversation history (for demonstration purposes).
-# In production, this should be stored in Redis or PostgreSQL.
-conversations: Dict[str, List[types.Content]] = {}
+# In production, this should be stored in Redis or PostgreSQL - keyed the same way
+# (via conversation_key) so callers don't need to change when that swap happens.
+conversations: Dict[str, List[Any]] = {}
+
+def conversation_key(user_id: Any, conversation_id: str) -> str:
+    """Namespace conversation history by user so one user can never read or
+    clear another user's in-memory conversation by guessing its ID."""
+    return f"{user_id}:{conversation_id}"
 
 SYSTEM_INSTRUCTION = """
 You are a helpful, courteous, and intelligent AI concierge for the Seat Booking App enterprise workspace booking application.
@@ -26,117 +38,75 @@ Core Workflows & Guidelines:
    - State prices clearly in INR (₹).
 2. Day Passes:
    - Check day pass availability using get_day_pass_availability.
+   - For more than one attendee, collect each additional attendee's name and email (the primary booker is always included automatically - do not ask for their own name/email again). Pass them as `additional_users` to confirm_intent_to_book, with `attendees` set to 1 + the number of additional attendees. Reject/flag it back to the user if two attendees share the same email - the backend will also enforce this.
 3. Meeting & Conference Rooms:
-   - Query rooms using get_meeting_or_conference_rooms for specified date and time ranges (start and end times).
+   - Required fields before searching: booking type (meeting or conference room), date, start time, end time (or duration), and number of attendees. Amenities (Projector, Video Conferencing, Whiteboard, Display, Wi-Fi, AC, etc.), meeting title, purpose, and participant emails are optional.
+   - NEVER ask for a field the user already gave you in this conversation, and NEVER assume or invent a missing date, time, or attendee count - ask for exactly what's missing.
+   - Query rooms with get_meeting_or_conference_rooms, always passing `capacity` (attendee count) and `amenities` when known - it deterministically filters out rooms that don't fit or lack the amenity, so trust its `available_rooms` list exactly as returned; never suggest a room it did not return.
+   - Use get_room_details for follow-up questions about one specific room.
+   - If `available_rooms` is empty, call resolve_booking_conflict with the same parameters and offer the real alternatives it returns (nearby time slots, larger rooms, rooms without the amenity, or the next day). Do not book an alternative automatically - always ask which one the user wants, if any.
+   - To reschedule an existing room booking, use reschedule via confirm_intent_to_reschedule (never modify a booking without this confirmation step).
 4. Wallet Balance & Top-up:
    - Check wallet balance before confirming bookings.
    - If credits are insufficient, suggest adding credits using intent_add_credits.
-5. Final Confirmation:
-   - When all details are specified and the user wants to book, call confirm_intent_to_book with the parameters and estimated amount. This will trigger a rich confirmation card in the user interface.
-6. Friendly and concise communication formatted with markdown.
+   - Use get_transaction_history for questions about past top-ups, charges, or refunds.
+5. Checking Bookings:
+   - Use get_my_bookings to list a user's bookings, and get_booking_details for full detail on one of them (by booking ID).
+   - Use get_location_details or get_branch_details when the user asks about a specific location/branch's address, hours, or facilities.
+6. Final Confirmation:
+   - When all required details are specified and the user wants to book, call confirm_intent_to_book with the parameters and estimated amount, including attendees/title/purpose/participant_emails/required_amenities when known. This will trigger a rich confirmation card in the user interface.
+   - Only treat a clear, unambiguous "yes" as confirmation (e.g. "yes", "confirm", "book it", "go ahead"). Words like "maybe", "not sure", or "show me" are NOT confirmation - keep gathering information or presenting options instead.
+   - NEVER call create_booking-equivalent tools directly and NEVER tell the user a booking is confirmed yourself - only confirm_intent_to_book / confirm_intent_to_reschedule / confirm_intent_to_cancel can trigger the confirmation card, and the booking only becomes real after the user clicks confirm in the UI.
+   - If the user has more than one active booking and asks to cancel "my booking" without saying which, use get_my_bookings and ask them to specify which one before calling confirm_intent_to_cancel.
+7. Friendly and concise communication formatted with markdown.
 """
 
 async def process_chat_message(
-    message: str, 
-    conversation_id: str, 
-    db: AsyncSession, 
+    message: str,
+    conversation_id: str,
+    db: AsyncSession,
     current_user: User
 ) -> ChatResponse:
-    
-    api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY", "")
-    if not api_key:
+
+    try:
+        client = get_client()
+    except OpenAIConfigError as e:
+        logger.error(str(e))
         return ChatResponse(
             conversation_id=conversation_id,
-            message="Chatbot AI service is active. To enable live Gemini responses, please provide `GEMINI_API_KEY` in your environment.",
+            message="The AI assistant isn't configured yet. Please set `OPENAI_API_KEY` in the environment and restart the backend to enable live responses.",
             suggested_actions=["Book a Seat", "Day Pass", "Meeting Rooms", "My Wallet"]
         )
 
-    client = genai.Client(api_key=api_key)
-    
-    # Initialize tools
-    chatbot_tools = ChatbotTools(db, current_user)
-    
-    tools_list = [
-        chatbot_tools.search_locations,
-        chatbot_tools.get_nearest_location,
-        chatbot_tools.search_branches,
-        chatbot_tools.search_rooms,
-        chatbot_tools.get_time_slots,
-        chatbot_tools.check_availability,
-        chatbot_tools.get_day_pass_availability,
-        chatbot_tools.get_meeting_or_conference_rooms,
-        chatbot_tools.get_wallet_balance,
-        chatbot_tools.get_my_bookings,
-        chatbot_tools.confirm_intent_to_book,
-        chatbot_tools.confirm_intent_to_cancel,
-        chatbot_tools.intent_add_credits,
-        chatbot_tools.recommend_seat,
-        chatbot_tools.recommend_room,
-    # Retrieve or create conversation history
-    if conversation_id not in conversations:
-        conversations[conversation_id] = []
-        
-    history = conversations[conversation_id]
+    # Retrieve or create conversation history, namespaced by user
+    conv_key = conversation_key(current_user.id, conversation_id)
+    history = conversations.get(conv_key, [])
 
     # Instantiate the tools class so methods are bound to db and current_user
     bot_tools = ChatbotTools(db=db, current_user=current_user)
-    tools_list = [getattr(bot_tools, m) for m in dir(bot_tools) if callable(getattr(bot_tools, m)) and not m.startswith("__")]
-    
-    config = types.GenerateContentConfig(
+    tool_names = [m for m in dir(bot_tools) if callable(getattr(bot_tools, m)) and not m.startswith("_")]
+    tool_callables = {name: getattr(bot_tools, name) for name in tool_names}
+    tool_schemas = [build_tool_schema(func) for func in tool_callables.values()]
+
+    result = await run_agentic_chat(
+        client=client,
+        model=settings.OPENAI_MODEL,
         system_instruction=SYSTEM_INSTRUCTION,
-        temperature=0.2,
-        tools=tools_list,
+        history=history,
+        user_message=message,
+        tool_callables=tool_callables,
+        tool_schemas=tool_schemas,
     )
 
-    # Note: For complex async tools, we use manual tool dispatch loop.
-    # The SDK handles serialization, but we want full control over the response to capture intents.
-    chat = client.aio.chats.create(
-        model="gemini-2.5-flash",
-        config=config,
-        history=history
-    )
-    
-    response = await chat.send_message(message)
-    
-    # The SDK automatically handles calling the Python functions and sending the results back 
-    # if we passed them in `tools` and they are synchronous. However, since ours are `async def`, 
-    # we might need to handle FunctionCalls manually if the SDK doesn't natively `await` them.
-    # Fortunately, the google-genai async client (`client.aio`) handles `async` tools automatically 
-    # if provided. The final response will be the text after all tool calls are resolved.
-    
-    final_text = response.text
-    suggested_actions = []
-    metadata = {}
-    
-    # Inspect the history to see if an intent tool was called and returned its payload.
-    # The SDK appends the tool responses to `chat.get_history()`.
-    for content in reversed(await chat.get_history()):
-        if content.parts:
-            for part in content.parts:
-                if part.function_response:
-                    try:
-                        # Extract the dictionary we returned from our intent tools
-                        resp_dict = part.function_response.response
-                        if isinstance(resp_dict, dict) and "action" in resp_dict:
-                            metadata["action"] = resp_dict["action"]
-                            metadata["payload"] = resp_dict.get("payload", {})
-                    except Exception as e:
-                        pass
-        
-        # Stop searching if we hit a user message
-        if content.role == "user":
-            break
+    # Save updated history for the next turn in this conversation
+    conversations[conv_key] = result.updated_history
 
-    # Save updated history
-    conversations[conversation_id] = await chat.get_history()
-
-    # Generate basic suggested actions if no explicit intent
-    if not metadata:
-        suggested_actions = ["Book a Seat", "Check Availability", "My Bookings"]
+    # Generate basic suggested actions if no explicit booking/cancel/reschedule intent
+    suggested_actions = [] if result.metadata else ["Book a Seat", "Check Availability", "My Bookings"]
 
     return ChatResponse(
         conversation_id=conversation_id,
-        message=final_text or "I'm not sure how to help with that.",
+        message=result.final_text,
         suggested_actions=suggested_actions,
-        metadata=metadata
+        metadata=result.metadata
     )
