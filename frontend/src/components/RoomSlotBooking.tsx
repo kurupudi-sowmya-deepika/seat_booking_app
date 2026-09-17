@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, ArrowRight, Building2, Calendar as CalendarIcon, CheckCircle2, Clock,
-  Filter, MapPin, Search, Wallet, X
+  Filter, MapPin, Search, Wallet, X, LayoutGrid, Grid3x3
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,6 +14,8 @@ import AmenityBadge from './AmenityBadge';
 import EmptyState from './EmptyState';
 import LoadingState from './LoadingState';
 import PriceSummary from './PriceSummary';
+import FloorPlanCanvas from './floorplan/FloorPlanCanvas';
+import type { LayoutItem } from './floorplan/FloorPlanCanvas';
 
 type RoomKind = 'MEETING_ROOM' | 'CONFERENCE_ROOM';
 const OPEN = 8 * 60;
@@ -57,6 +59,13 @@ export default function RoomSlotBooking({ kind }: { kind: RoomKind }) {
   const [showFilters, setShowFilters] = useState(true);
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+
+  // Employee-facing floor-plan view: only shown when the branch has a published
+  // floor containing a room of this kind - falls back to the existing card grid
+  // otherwise (employees only ever see the Published version, never a draft).
+  const [floorPlanFloor, setFloorPlanFloor] = useState<any | null>(null);
+  const [floorPlanItems, setFloorPlanItems] = useState<LayoutItem[]>([]);
+  const [resultsView, setResultsView] = useState<'grid' | 'floorplan'>('grid');
 
   const startMinutes = Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3));
   const permittedDurations = DURATIONS.filter((value) => startMinutes + value <= CLOSE);
@@ -126,6 +135,37 @@ export default function RoomSlotBooking({ kind }: { kind: RoomKind }) {
     };
   }, [branchId, date, kind]);
 
+  useEffect(() => {
+    setFloorPlanFloor(null);
+    setFloorPlanItems([]);
+    setResultsView('grid');
+    if (!branchId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const floorsRes = await api.get('/floor-plans/floors', { params: { branch_id: branchId } });
+        const publishedFloors = (floorsRes.data || []).filter((f: any) => f.published_at);
+        for (const f of publishedFloors) {
+          const pubRes = await api.get(`/floor-plans/floors/${f.id}/published`);
+          const items: any[] = pubRes.data.items || [];
+          const hasRoomOfKind = items.some((it) => it.item_type === 'ROOM' && it.room_type === kind);
+          if (hasRoomOfKind) {
+            if (!cancelled) {
+              setFloorPlanFloor(pubRes.data.floor);
+              setFloorPlanItems(items);
+            }
+            return;
+          }
+        }
+      } catch {
+        // No published floor plan available for this branch - the existing card grid covers it.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [branchId, kind]);
+
   const filteredRooms = useMemo(() => {
     return rooms.filter((item: any) => {
       if (appliedFilters.amenities.length > 0) {
@@ -161,6 +201,11 @@ export default function RoomSlotBooking({ kind }: { kind: RoomKind }) {
   const floors = useMemo(
     () => Array.from(new Set(rooms.map((item) => item.floor).filter((value: number | null) => value != null))).sort(),
     [rooms]
+  );
+
+  const unavailableRoomIds = useMemo(
+    () => new Set(filteredRooms.filter((item: any) => item.status !== 'AVAILABLE').map((item: any) => item.room_id)),
+    [filteredRooms]
   );
 
   const submit = async () => {
@@ -333,12 +378,49 @@ export default function RoomSlotBooking({ kind }: { kind: RoomKind }) {
         )}
       </section>
 
+      {branchId && floorPlanFloor && !loading && filteredRooms.length > 0 && (
+        <div className="flex items-center justify-end">
+          <div className="inline-flex rounded-full bg-gray-100 p-1">
+            <button
+              onClick={() => setResultsView('grid')}
+              className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[13px] font-bold ${resultsView === 'grid' ? 'bg-white shadow text-[#007bc0]' : 'text-gray-500'}`}
+            ><LayoutGrid size={14} /> Grid</button>
+            <button
+              onClick={() => setResultsView('floorplan')}
+              className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-[13px] font-bold ${resultsView === 'floorplan' ? 'bg-white shadow text-[#007bc0]' : 'text-gray-500'}`}
+            ><Grid3x3 size={14} /> Floor Plan</button>
+          </div>
+        </div>
+      )}
+
       {!branchId ? (
         <EmptyState icon={<Building2 size={42} />} title="Choose a location and office" description="Select an office to load meeting and conference rooms for that campus." />
       ) : loading ? (
         <LoadingState label="Loading rooms..." />
       ) : filteredRooms.length === 0 ? (
         <EmptyState title={`No ${roomLabel.toLowerCase()}s match your filters.`} />
+      ) : resultsView === 'floorplan' && floorPlanFloor ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-gray-600">
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-[#10b981] bg-[#ecfdf5]" />Available</span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-[#ef4444] bg-[#fee2e2]" />Booked</span>
+            <span className="text-gray-400">Click an available room to select it.</span>
+          </div>
+          <div className="h-[500px] rounded-2xl border border-gray-200 overflow-hidden">
+            <FloorPlanCanvas
+              mode="view"
+              canvasWidth={floorPlanFloor.canvas_width}
+              canvasHeight={floorPlanFloor.canvas_height}
+              items={floorPlanItems.filter((it) => it.item_type !== 'ROOM' || it.room_type === kind)}
+              unavailableRoomIds={unavailableRoomIds}
+              onItemActivate={(item) => {
+                if (item.item_type !== 'ROOM' || item.room_type !== kind) return;
+                const matching = filteredRooms.find((r: any) => r.room_id === item.room_id);
+                if (matching && matching.status !== 'UNAVAILABLE') setRoom(matching);
+              }}
+            />
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
           {filteredRooms.map((item: any) => (

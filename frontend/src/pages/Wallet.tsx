@@ -57,12 +57,14 @@ export const Wallet: React.FC = () => {
       const res = await api.post('/wallet/topup', { amount });
       if (res.data.checkout_url) {
         window.location.href = res.data.checkout_url;
+        return;
       } else if (res.data.demo_credit) {
         setDemoSuccess(true);
         await fetchWalletAndTransactions();
       }
     } catch (err) {
       console.error('Failed to initiate topup', err);
+    } finally {
       setTopupLoading(false);
     }
   };

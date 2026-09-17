@@ -11,8 +11,10 @@ export const AdminFacilities: React.FC = () => {
   
   const [formData, setFormData] = useState({
     name: '',
-    description: ''
+    description: '',
+    category: ''
   });
+  const FACILITY_CATEGORIES = ['Furniture', 'Equipment', 'Facilities', 'Building'];
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,14 +36,14 @@ export const AdminFacilities: React.FC = () => {
 
   const openCreate = () => {
     setEditingId(null);
-    setFormData({ name: '', description: '' });
+    setFormData({ name: '', description: '', category: '' });
     setError('');
     setModalOpen(true);
   };
 
   const openEdit = (fac: any) => {
     setEditingId(fac.id);
-    setFormData({ name: fac.name, description: fac.description || '' });
+    setFormData({ name: fac.name, description: fac.description || '', category: fac.category || '' });
     setError('');
     setModalOpen(true);
   };
@@ -109,6 +111,7 @@ export const AdminFacilities: React.FC = () => {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Facility Name</th>
+                  <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Description</th>
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -117,6 +120,11 @@ export const AdminFacilities: React.FC = () => {
                 {facilities.map((fac) => (
                   <tr key={fac.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-gray-800">{fac.name}</td>
+                    <td className="py-3.5 px-4 text-gray-500">
+                      {fac.category ? (
+                        <span className="px-2 py-0.5 bg-blue-50 text-[#007bc0] rounded-full text-[10px] font-bold">{fac.category}</span>
+                      ) : '—'}
+                    </td>
                     <td className="py-3.5 px-4 text-gray-500">{fac.description}</td>
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
@@ -169,6 +177,20 @@ export const AdminFacilities: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#007bc0]/30"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-600 mb-1">Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#007bc0]/30"
+                  >
+                    <option value="">Uncategorized</option>
+                    {FACILITY_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

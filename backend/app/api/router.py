@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 from app.api.routes import (
-    auth, locations, branches, rooms, facilities, seats, 
-    day_passes, time_slots, bookings, payments, wallet, users, 
-    admin, chatbot, visitors, notifications, reports
+    auth, locations, branches, rooms, facilities, seats,
+    day_passes, time_slots, bookings, payments, wallet, users,
+    admin, chatbot, visitors, notifications, reports, floor_plans, floor_plan_ai
 )
 
 api_router = APIRouter()
@@ -23,3 +23,5 @@ api_router.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 api_router.include_router(visitors.router, prefix="/visitors", tags=["visitors"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
+api_router.include_router(floor_plans.router, prefix="/floor-plans", tags=["floor-plans"])
+api_router.include_router(floor_plan_ai.router, prefix="/floor-plans", tags=["floor-plans"])

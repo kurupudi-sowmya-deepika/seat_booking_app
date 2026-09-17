@@ -94,6 +94,9 @@ class FloorLayoutItem(BaseModel):
     rotation: Mapped[float] = mapped_column(Float, default=0.0)
     shape: Mapped[LayoutShape] = mapped_column(Enum(LayoutShape), default=LayoutShape.RECTANGLE)
     z_index: Mapped[int] = mapped_column(Integer, default=0)
+    # Visual height for the isometric render only (FloorPlanCanvas.tsx mode="isometric") -
+    # has no effect on 2D edit/view/preview, on validation, or on the real Seat/Room rows.
+    elevation: Mapped[float] = mapped_column(Float, default=0.0)
 
     # Type-specific staged/extra fields - see module docstring for the shape per item_type.
     properties: Mapped[dict | None] = mapped_column(JSON, nullable=True)

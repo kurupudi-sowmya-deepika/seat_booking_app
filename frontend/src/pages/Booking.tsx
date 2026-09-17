@@ -9,6 +9,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import AutoLocationDetector from '../components/AutoLocationDetector';
 import { useLocation } from '../context/LocationContext';
+import FloorPlanCanvas from '../components/floorplan/FloorPlanCanvas';
+import type { LayoutItem } from '../components/floorplan/FloorPlanCanvas';
+import { LayoutGrid, Grid3x3 } from 'lucide-react';
 
 export const Booking: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +47,13 @@ export const Booking: React.FC = () => {
   const [error, setError] = useState('');
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookings, setBookings] = useState<any[]>([]);
+
+  // Employee-facing floor plan view: only shown when the currently selected room
+  // actually has a published layout - falls back to the existing grid otherwise
+  // (requirement 11: employees only ever see the Published version, never a draft).
+  const [floorPlanFloor, setFloorPlanFloor] = useState<any | null>(null);
+  const [floorPlanItems, setFloorPlanItems] = useState<LayoutItem[]>([]);
+  const [viewMode, setViewMode] = useState<'grid' | 'floorplan'>('grid');
 
   useEffect(() => {
     api.get('/locations/').then(res => setLocations(res.data)).catch(() => {});
@@ -87,6 +97,41 @@ export const Booking: React.FC = () => {
       setSelectedSeat(null);
     }
   }, [selectedBranch]);
+
+  // Look up whether the selected room lives on a published floor plan.
+  useEffect(() => {
+    setFloorPlanFloor(null);
+    setFloorPlanItems([]);
+    setViewMode('grid');
+    if (!selectedBranch || !selectedRoom) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const floorsRes = await api.get('/floor-plans/floors', { params: { branch_id: selectedBranch } });
+        const publishedFloors = (floorsRes.data || []).filter((f: any) => f.published_at);
+        for (const f of publishedFloors) {
+          const pubRes = await api.get(`/floor-plans/floors/${f.id}/published`);
+          const items: any[] = pubRes.data.items || [];
+          // SEAT items never carry room_id directly (DB constraint restricts room_id to
+          // ROOM-type items) - a seat's room is its parent ROOM item, found via parent_item_id.
+          const roomItem = items.find((it) => it.item_type === 'ROOM' && it.room_id === selectedRoom);
+          const hasRoom = !!roomItem && items.some((it) => it.item_type === 'SEAT' && it.parent_item_id === roomItem.id);
+          if (hasRoom) {
+            if (!cancelled) {
+              setFloorPlanFloor(pubRes.data.floor);
+              setFloorPlanItems(items.map((it) => (it.item_type === 'SEAT' ? { ...it, room_id: roomItem.id === it.parent_item_id ? selectedRoom : it.room_id } : it)));
+            }
+            return;
+          }
+        }
+      } catch {
+        // No published floor plan available for this room - the existing grid view covers it.
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [selectedBranch, selectedRoom]);
 
   const fetchAvailability = async () => {
     if (selectedRoom && date && selectedSlotIds.length > 0) {
@@ -400,21 +445,57 @@ export const Booking: React.FC = () => {
             
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
               <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-xs">2</span> 
+                <span className="w-6 h-6 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-xs">2</span>
                 Select Workspace Seat
               </h2>
-              
-              {seats.length > 0 && (
-                <div className="flex flex-wrap gap-4 text-xs font-semibold text-gray-600 bg-gray-50 px-4 py-2 rounded-full border border-gray-200">
-                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-emerald-100 border border-emerald-500"></div> Available (Green)</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-red-100 border border-red-500"></div> Booked (Red)</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-[#007bc0] border border-[#005691]"></div> Selected (Blue)</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-gray-200 border border-gray-400"></div> Disabled (Gray)</div>
-                </div>
-              )}
+
+              <div className="flex items-center gap-3">
+                {floorPlanFloor && (
+                  <div className="flex items-center bg-gray-100 rounded-full p-0.5 text-xs font-bold">
+                    <button
+                      onClick={() => setViewMode('grid')}
+                      className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 ${viewMode === 'grid' ? 'bg-white shadow text-[#007bc0]' : 'text-gray-500'}`}
+                    >
+                      <Grid3x3 size={13} /> Grid
+                    </button>
+                    <button
+                      onClick={() => setViewMode('floorplan')}
+                      className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 ${viewMode === 'floorplan' ? 'bg-white shadow text-[#007bc0]' : 'text-gray-500'}`}
+                    >
+                      <LayoutGrid size={13} /> Floor Plan
+                    </button>
+                  </div>
+                )}
+                {seats.length > 0 && (
+                  <div className="hidden lg:flex flex-wrap gap-4 text-xs font-semibold text-gray-600 bg-gray-50 px-4 py-2 rounded-full border border-gray-200">
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-emerald-100 border border-emerald-500"></div> Available (Green)</div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-red-100 border border-red-500"></div> Booked (Red)</div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-[#007bc0] border border-[#005691]"></div> Selected (Blue)</div>
+                    <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-md bg-gray-200 border border-gray-400"></div> Disabled (Gray)</div>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            {!selectedRoom || !date || selectedSlotIds.length === 0 ? (
+
+            {viewMode === 'floorplan' && floorPlanFloor ? (
+              <div className="flex-grow min-h-[420px]">
+                <FloorPlanCanvas
+                  mode="view"
+                  canvasWidth={floorPlanFloor.canvas_width}
+                  canvasHeight={floorPlanFloor.canvas_height}
+                  items={floorPlanItems.filter(it => it.item_type !== 'SEAT' || it.room_id === selectedRoom)}
+                  bookedSeatIds={new Set(seats.filter(s => s.status === 'BOOKED').map(s => s.seat_id))}
+                  onItemActivate={(item) => {
+                    if (item.item_type !== 'SEAT') return;
+                    if (item.room_id !== selectedRoom) return; // out-of-scope seat on the same floor
+                    const matching = seats.find(s => s.seat_id === item.seat_id);
+                    if (matching && matching.status !== 'BOOKED') {
+                      setSelectedSeat(selectedSeat?.seat_id === matching.seat_id ? null : matching);
+                    }
+                  }}
+                />
+              </div>
+            ) : !selectedRoom || !date || selectedSlotIds.length === 0 ? (
               <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50 text-gray-400 p-8 text-center">
                 <MapPin size={48} className="mb-3 opacity-20 text-[#007bc0]" />
                 <h4 className="font-semibold text-gray-700 text-sm">Interactive Seat Plan</h4>

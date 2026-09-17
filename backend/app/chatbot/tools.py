@@ -424,6 +424,46 @@ class ChatbotTools:
             "location_id": str(branch.location_id) if branch else None
         }
 
+    async def open_booking_form(
+        self,
+        booking_type: str,
+        branch_name: Optional[str] = None,
+        booking_date: Optional[str] = None,
+        start_time_str: Optional[str] = None,
+        end_time_str: Optional[str] = None,
+        attendees: Optional[int] = None,
+        required_amenities: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Call this immediately - do not ask the user sequential questions first -
+        whenever they want to book a meeting or conference room ('booking_type' must
+        be 'MEETING_ROOM' or 'CONFERENCE_ROOM'). Pass whatever fields you can
+        confidently extract from their message right now (branch, date, start/end
+        time, attendee count, amenities); leave anything unclear as None so the user
+        completes it in an interactive form the UI renders from this tool's result.
+        This tool never searches for rooms or books anything by itself.
+        """
+        payload: Dict[str, Any] = {"booking_type": booking_type}
+
+        if branch_name:
+            branch = await self._find_branch(branch_name)
+            if branch:
+                payload["branch_id"] = str(branch.id)
+                payload["branch_name"] = branch.name
+                payload["location_id"] = str(branch.location_id)
+        if booking_date:
+            payload["booking_date"] = booking_date
+        if start_time_str:
+            payload["start_time"] = start_time_str[:5]
+        if end_time_str:
+            payload["end_time"] = end_time_str[:5]
+        if attendees:
+            payload["attendees"] = attendees
+        if required_amenities:
+            payload["required_amenities"] = required_amenities
+
+        return {"action": "SHOW_BOOKING_FORM", "payload": payload}
+
     # ---------- AI Intelligence Tools ----------
 
     async def recommend_seat(self, branch_name: str, preference: str, booking_date: str) -> Dict[str, Any]:

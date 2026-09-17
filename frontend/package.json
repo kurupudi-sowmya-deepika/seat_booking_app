@@ -17,9 +17,11 @@
     "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.6.8",
     "framer-motion": "^13.2.0",
+    "konva": "^10.5.0",
     "lucide-react": "^0.358.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-konva": "^19.2.7",
     "react-router-dom": "^6.22.3"
   },
   "devDependencies": {

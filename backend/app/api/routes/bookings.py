@@ -99,7 +99,10 @@ async def get_seat_availability(
     end_time: Optional[time] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    seats_result = await db.execute(select(Seat).where(Seat.room_id == room_id, Seat.status == "ACTIVE"))
+    # "AVAILABLE" is accepted alongside the original "ACTIVE" so seats created via the
+    # floor-plan editor (whose status options are Available/Disabled/Maintenance) are
+    # just as bookable as seats from the older Admin > Seats flow - purely additive.
+    seats_result = await db.execute(select(Seat).where(Seat.room_id == room_id, Seat.status.in_(("ACTIVE", "AVAILABLE"))))
     seats = seats_result.scalars().all()
     
     condition = and_(
@@ -355,7 +358,7 @@ async def get_alternative_suggestions(
         all_seats = (await db.execute(
             select(Seat)
             .join(Room)
-            .where(Room.branch_id == branch_id, Seat.status == "ACTIVE")
+            .where(Room.branch_id == branch_id, Seat.status.in_(("ACTIVE", "AVAILABLE")))
             .limit(10)
         )).scalars().all()
 
@@ -1032,6 +1035,7 @@ async def get_all_bookings_admin(
     booking_type: Optional[str] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    user_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
@@ -1050,6 +1054,8 @@ async def get_all_bookings_admin(
         query = query.where(Booking.booking_type == booking_type)
     if status:
         query = query.where(Booking.status == status)
+    if user_id:
+        query = query.where(Booking.user_id == user_id)
     if search:
         like = f"%{search}%"
         query = query.join(User, Booking.user_id == User.id).outerjoin(

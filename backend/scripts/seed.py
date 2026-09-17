@@ -61,28 +61,45 @@ async def seed_db():
 
         # 3. Facilities
         facility_data = [
-            ("High-Speed Wi-Fi", "Gigabit fiber with dedicated SSID"),
-            ("Air Conditioning", "Central HVAC climate control"),
-            ("Dual 4K Monitors", "USB-C docking station with two 27-inch 4K displays"),
-            ("Power Socket", "Universal power sockets with fast USB-C PD"),
-            ("Parking", "Reserved underground vehicle and EV charging parking"),
-            ("Artisan Coffee & Tea", "Unlimited espresso, cappuccino, green tea and snacks"),
-            ("Heavy-Duty Printer", "High-speed laser printing and color scanning"),
-            ("Whiteboard", "Magnetic dry-erase glass board with markers"),
-            ("4K Projector", "Ceiling-mounted 4K UHD laser projector"),
-            ("Video Conferencing", "Logitech Rally 4K pan-tilt camera with microphone pods")
+            ("High-Speed Wi-Fi", "Gigabit fiber with dedicated SSID", "Equipment"),
+            ("Air Conditioning", "Central HVAC climate control", "Facilities"),
+            ("Dual 4K Monitors", "USB-C docking station with two 27-inch 4K displays", "Equipment"),
+            ("Power Socket", "Universal power sockets with fast USB-C PD", "Equipment"),
+            ("Parking", "Reserved underground vehicle and EV charging parking", "Building"),
+            ("Artisan Coffee & Tea", "Unlimited espresso, cappuccino, green tea and snacks", "Facilities"),
+            ("Heavy-Duty Printer", "High-speed laser printing and color scanning", "Equipment"),
+            ("Whiteboard", "Magnetic dry-erase glass board with markers", "Furniture"),
+            ("4K Projector", "Ceiling-mounted 4K UHD laser projector", "Equipment"),
+            ("Video Conferencing", "Logitech Rally 4K pan-tilt camera with microphone pods", "Equipment"),
+            # Non-bookable building/floor objects for the isometric floor-plan editor's
+            # facility palette (item_type=FACILITY, purely visual/informational markers -
+            # see FloorPlanEditor.tsx's facility library and floor_plan.py's module docstring).
+            ("Reception", "Front-desk reception and visitor check-in counter", "Building"),
+            ("Stairs", "Fire-rated staircase", "Building"),
+            ("Elevator", "Passenger elevator", "Building"),
+            ("Restroom", "Restroom facility", "Building"),
+            ("Cafeteria", "Staff cafeteria and dining area", "Building"),
+            ("Pantry", "Shared pantry with kitchenette", "Building"),
+            ("Lounge", "Informal seating and break-out lounge", "Building"),
+            ("Storage", "Storage/utility room", "Building"),
+            ("Emergency Exit", "Marked emergency exit route", "Building"),
+            ("Plant/Decoration", "Decorative plant or greenery", "Building"),
         ]
-        
+
         facilities_map = {}
-        for name, desc in facility_data:
+        for name, desc, category in facility_data:
             f_res = await db.execute(select(Facility).where(Facility.name == name))
             fac = f_res.scalar_one_or_none()
             if not fac:
-                fac = Facility(name=name, description=desc)
+                fac = Facility(name=name, description=desc, category=category)
                 db.add(fac)
                 await db.flush()
+            elif not fac.category:
+                # Backfill category on a pre-existing row from an older seed run,
+                # without touching a category an admin may have since customized.
+                fac.category = category
             facilities_map[name] = fac
-            
+
         await db.commit()
         print(f"✅ Loaded {len(facilities_map)} Facilities")
 

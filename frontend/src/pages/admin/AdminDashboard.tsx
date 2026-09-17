@@ -33,8 +33,8 @@ export const AdminDashboard: React.FC = () => {
     { label: 'Rooms & Zones', value: stats?.total_rooms ?? 0, icon: <DoorOpen size={20} />, color: 'bg-purple-50 text-purple-600', link: '/admin/rooms' },
     { label: 'Total Desks', value: stats?.total_seats ?? 0, icon: <Armchair size={20} />, color: 'bg-amber-50 text-amber-600', link: '/admin/seats' },
     { label: 'Day Pass Types', value: stats?.total_day_passes ?? 0, icon: <Tag size={20} />, color: 'bg-teal-50 text-teal-600', link: '/admin/day-passes' },
-    { label: 'Total Bookings', value: stats?.total_bookings ?? 0, icon: <Calendar size={20} />, color: 'bg-sky-50 text-sky-600', link: '/admin/bookings' },
-    { label: 'Seat Occupancy', value: `${stats?.occupancy_rate ?? 0}%`, icon: <Activity size={20} />, color: 'bg-rose-50 text-rose-600', link: '/admin/bookings' },
+    { label: 'Total Bookings', value: stats?.total_bookings ?? 0, icon: <Calendar size={20} />, color: 'bg-sky-50 text-sky-600', link: '/admin/reports' },
+    { label: 'Seat Occupancy', value: `${stats?.occupancy_rate ?? 0}%`, icon: <Activity size={20} />, color: 'bg-rose-50 text-rose-600', link: '/admin/reports' },
   ];
 
   return (
@@ -164,8 +164,8 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center text-xs">
             <span className="text-gray-400">Audited metrics</span>
-            <Link to="/admin/bookings" className="text-[#007bc0] font-bold hover:underline flex items-center gap-1">
-              View All Bookings <ArrowUpRight size={14} />
+            <Link to="/admin/reports" className="text-[#007bc0] font-bold hover:underline flex items-center gap-1">
+              View Booking Reports <ArrowUpRight size={14} />
             </Link>
           </div>
         </div>

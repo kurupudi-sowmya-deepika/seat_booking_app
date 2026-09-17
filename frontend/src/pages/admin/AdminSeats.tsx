@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { 
   Armchair, Plus, Edit2, Trash2, Search, Filter, 
-  Layers, MapPin, Building2, CheckCircle, AlertCircle, RefreshCw
+  LayoutGrid, List, MapPin, Building2, CheckCircle, AlertCircle, RefreshCw, Layers
 } from 'lucide-react';
 
 interface SeatItem {
@@ -40,9 +40,12 @@ export const AdminSeats: React.FC = () => {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filters & View Mode
   const [search, setSearch] = useState('');
   const [selectedRoom, setSelectedRoom] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -57,7 +60,6 @@ export const AdminSeats: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -72,10 +74,10 @@ export const AdminSeats: React.FC = () => {
         api.get('/branches/'),
         api.get('/locations/'),
       ]);
-      setSeats(seatsRes.data);
-      setRooms(roomsRes.data);
-      setBranches(branchesRes.data);
-      setLocations(locsRes.data);
+      setSeats(seatsRes.data || []);
+      setRooms(roomsRes.data || []);
+      setBranches(branchesRes.data || []);
+      setLocations(locsRes.data || []);
     } catch (err) {
       console.error('Failed to load seat data', err);
     } finally {
@@ -83,9 +85,8 @@ export const AdminSeats: React.FC = () => {
     }
   };
 
-  const handleOpenModal = (seat?: SeatItem) => {
+  const handleOpenModal = (seat?: SeatItem, defaultRoomId?: string) => {
     setErrorMsg('');
-    setSuccessMsg('');
     if (seat) {
       setEditingSeat(seat);
       setFormData({
@@ -99,7 +100,7 @@ export const AdminSeats: React.FC = () => {
     } else {
       setEditingSeat(null);
       setFormData({
-        room_id: rooms.length > 0 ? rooms[0].id : '',
+        room_id: defaultRoomId || (rooms.length > 0 ? rooms[0].id : ''),
         seat_number: '',
         seat_type: 'STANDARD',
         description: '',
@@ -117,10 +118,8 @@ export const AdminSeats: React.FC = () => {
     try {
       if (editingSeat) {
         await api.put(`/seats/${editingSeat.id}`, formData);
-        setSuccessMsg('Seat updated successfully!');
       } else {
         await api.post('/seats/', formData);
-        setSuccessMsg('Seat created successfully!');
       }
       setIsModalOpen(false);
       fetchData();
@@ -161,6 +160,24 @@ export const AdminSeats: React.FC = () => {
     return matchesSearch && matchesRoom && matchesType;
   });
 
+  // Group seats hierarchically by Location -> Branch -> Room
+  const groupedHierarchy = locations.map(loc => {
+    const locBranches = branches.filter(b => b.location_id === loc.id);
+    const branchesWithRooms = locBranches.map(br => {
+      const brRooms = rooms.filter(r => r.branch_id === br.id);
+      const roomsWithSeats = brRooms.map(rm => {
+        const rmSeats = filteredSeats.filter(s => s.room_id === rm.id);
+        return { room: rm, seats: rmSeats };
+      }).filter(item => item.seats.length > 0 || brRooms.length === 0);
+
+      const totalSeatsInBranch = roomsWithSeats.reduce((acc, r) => acc + r.seats.length, 0);
+      return { branch: br, roomsWithSeats, totalSeatsInBranch };
+    }).filter(bGroup => bGroup.totalSeatsInBranch > 0 || locBranches.length === 0);
+
+    const totalSeatsInLoc = branchesWithRooms.reduce((acc, b) => acc + b.totalSeatsInBranch, 0);
+    return { location: loc, branchesWithRooms, totalSeatsInLoc };
+  }).filter(group => group.totalSeatsInLoc > 0 || locations.length === 0);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -171,10 +188,32 @@ export const AdminSeats: React.FC = () => {
             Desks & Seat Inventory
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Configure workstations, seat zones, dynamic pricing, and floor allocations.
+            Configure workstations, seat zones, dynamic pricing, and floor allocations across all campuses.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {/* View Switcher: Grid vs Table */}
+          <div className="flex bg-gray-200/80 p-1 rounded-xl">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                viewMode === 'grid' ? 'bg-white text-[#007bc0] shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid size={15} /> Grid
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                viewMode === 'table' ? 'bg-white text-[#007bc0] shadow-sm' : 'text-gray-600 hover:text-gray-900'
+              }`}
+              title="Table View"
+            >
+              <List size={15} /> Table
+            </button>
+          </div>
+
           <button 
             onClick={fetchData} 
             className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-sm"
@@ -253,86 +292,173 @@ export const AdminSeats: React.FC = () => {
         </div>
       </div>
 
-      {/* Seats Table */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-gray-400">Loading seat inventory...</div>
-        ) : filteredSeats.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">No seats found matching your criteria.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50/80 border-b border-gray-200 text-[11px] font-extrabold uppercase text-gray-400 tracking-wider">
-                  <th className="py-3.5 px-6">Seat Number</th>
-                  <th className="py-3.5 px-6">Zone / Room</th>
-                  <th className="py-3.5 px-6">Branch</th>
-                  <th className="py-3.5 px-6">Desk Tier</th>
-                  <th className="py-3.5 px-6">Credits / Slot</th>
-                  <th className="py-3.5 px-6">Status</th>
-                  <th className="py-3.5 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-sm">
-                {filteredSeats.map((seat) => (
-                  <tr key={seat.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="py-3.5 px-6 font-black text-gray-900 flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#007bc0] flex items-center justify-center font-bold text-xs">
-                        {seat.seat_number}
+      {/* Content: Location -> Branch -> Room hierarchy */}
+      {loading ? (
+        <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">Loading seat inventory...</div>
+      ) : filteredSeats.length === 0 ? (
+        <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">No seats found matching your criteria.</div>
+      ) : (
+        <div className="space-y-8">
+          {groupedHierarchy.map(locGroup => (
+            <div key={locGroup.location.id} className="space-y-4">
+              {/* Location Header */}
+              <div className="flex items-center gap-2 pb-2 border-b-2 border-[#007bc0]/30">
+                <MapPin className="text-[#007bc0]" size={20} />
+                <h2 className="text-lg font-black text-gray-800">
+                  {locGroup.location.name} <span className="text-sm font-semibold text-gray-500">({locGroup.location.city})</span>
+                </h2>
+                <span className="ml-auto text-xs font-extrabold px-2.5 py-1 bg-blue-100 text-[#007bc0] rounded-full">
+                  {locGroup.totalSeatsInLoc} Desks
+                </span>
+              </div>
+
+              {/* Branches under Location */}
+              <div className="pl-2 sm:pl-4 space-y-6">
+                {locGroup.branchesWithRooms.map(brGroup => (
+                  <div key={brGroup.branch.id} className="space-y-4">
+                    {/* Branch Title */}
+                    <div className="flex items-center justify-between bg-gradient-to-r from-slate-100 to-white px-4 py-2.5 rounded-xl border border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="text-[#005691]" size={16} />
+                        <h3 className="text-sm font-bold text-gray-800">{brGroup.branch.name} Campus</h3>
+                        <span className="text-xs text-gray-500">— {brGroup.totalSeatsInBranch} Total Seats</span>
                       </div>
-                    </td>
-                    <td className="py-3.5 px-6 font-semibold text-gray-700">
-                      {getRoomName(seat.room_id)}
-                    </td>
-                    <td className="py-3.5 px-6 text-gray-500 text-xs">
-                      {getBranchForRoom(seat.room_id)}
-                    </td>
-                    <td className="py-3.5 px-6">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        seat.seat_type === 'ERGONOMIC' ? 'bg-purple-100 text-purple-700' :
-                        seat.seat_type === 'WINDOW' ? 'bg-amber-100 text-amber-700' :
-                        seat.seat_type === 'QUIET_ZONE' ? 'bg-emerald-100 text-emerald-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {seat.seat_type}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-6 font-black text-gray-900">
-                      ₹{seat.price}
-                    </td>
-                    <td className="py-3.5 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
-                        seat.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${seat.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} />
-                        {seat.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenModal(seat)}
-                          className="p-1.5 text-gray-400 hover:text-[#007bc0] hover:bg-blue-50 rounded-lg transition"
-                          title="Edit Seat"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(seat.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                          title="Delete Seat"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                    </div>
+
+                    {/* Rooms under Branch */}
+                    <div className="pl-2 sm:pl-4 space-y-4">
+                      {brGroup.roomsWithSeats.map(rmGroup => (
+                        <div key={rmGroup.room.id} className="space-y-3 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Layers size={15} className="text-[#007bc0]" />
+                              <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">{rmGroup.room.name}</h4>
+                              <span className="text-[11px] text-gray-500">({rmGroup.seats.length} seats)</span>
+                            </div>
+                            <button
+                              onClick={() => handleOpenModal(undefined, rmGroup.room.id)}
+                              className="text-xs text-[#007bc0] hover:underline font-bold flex items-center gap-1"
+                            >
+                              <Plus size={13} /> Add Desk
+                            </button>
+                          </div>
+
+                          {/* View Mode: GRID vs TABLE */}
+                          {viewMode === 'grid' ? (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                              {rmGroup.seats.map(seat => (
+                                <div
+                                  key={seat.id}
+                                  className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                                >
+                                  <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#007bc0] flex items-center justify-center font-black text-xs">
+                                        {seat.seat_number}
+                                      </div>
+                                      <span className={`w-2 h-2 rounded-full ${seat.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} title={seat.status} />
+                                    </div>
+
+                                    <div className="space-y-1 mb-2">
+                                      <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                        seat.seat_type === 'ERGONOMIC' ? 'bg-purple-100 text-purple-700' :
+                                        seat.seat_type === 'WINDOW' ? 'bg-amber-100 text-amber-700' :
+                                        seat.seat_type === 'QUIET_ZONE' ? 'bg-emerald-100 text-emerald-700' :
+                                        'bg-gray-100 text-gray-700'
+                                      }`}>
+                                        {seat.seat_type}
+                                      </span>
+                                      <p className="text-xs font-extrabold text-gray-900">₹{seat.price} <span className="text-[9px] text-gray-400 font-medium">/slot</span></p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-1 pt-2 border-t border-gray-100">
+                                    <button
+                                      onClick={() => handleOpenModal(seat)}
+                                      className="p-1 text-gray-400 hover:text-[#007bc0] rounded transition"
+                                      title="Edit Desk"
+                                    >
+                                      <Edit2 size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(seat.id)}
+                                      className="p-1 text-gray-400 hover:text-red-600 rounded transition"
+                                      title="Delete Desk"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse text-xs">
+                                  <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-extrabold uppercase text-gray-400 tracking-wider">
+                                      <th className="py-2.5 px-4">Seat Number</th>
+                                      <th className="py-2.5 px-4">Desk Tier</th>
+                                      <th className="py-2.5 px-4">Credits / Slot</th>
+                                      <th className="py-2.5 px-4">Status</th>
+                                      <th className="py-2.5 px-4 text-right">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-100">
+                                    {rmGroup.seats.map(seat => (
+                                      <tr key={seat.id} className="hover:bg-gray-50/60">
+                                        <td className="py-2.5 px-4 font-black text-gray-900">{seat.seat_number}</td>
+                                        <td className="py-2.5 px-4">
+                                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                            seat.seat_type === 'ERGONOMIC' ? 'bg-purple-100 text-purple-700' :
+                                            seat.seat_type === 'WINDOW' ? 'bg-amber-100 text-amber-700' :
+                                            seat.seat_type === 'QUIET_ZONE' ? 'bg-emerald-100 text-emerald-700' :
+                                            'bg-gray-100 text-gray-700'
+                                          }`}>
+                                            {seat.seat_type}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-4 font-bold text-gray-800">₹{seat.price}</td>
+                                        <td className="py-2.5 px-4">
+                                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                            seat.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                                          }`}>
+                                            {seat.status}
+                                          </span>
+                                        </td>
+                                        <td className="py-2.5 px-4 text-right">
+                                          <div className="flex items-center justify-end gap-1">
+                                            <button
+                                              onClick={() => handleOpenModal(seat)}
+                                              className="p-1 text-gray-400 hover:text-[#007bc0] rounded transition"
+                                            >
+                                              <Edit2 size={14} />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDelete(seat.id)}
+                                              className="p-1 text-gray-400 hover:text-red-600 rounded transition"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal */}
       {isModalOpen && (

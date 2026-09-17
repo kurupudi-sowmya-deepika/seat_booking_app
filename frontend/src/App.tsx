@@ -30,13 +30,13 @@ import Profile from './pages/Profile';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminReports from './pages/admin/AdminReports';
 import AdminUsers from './pages/admin/AdminUsers';
-import AdminBookings from './pages/admin/AdminBookings';
-import AdminWallets from './pages/admin/AdminWallets';
 import AdminLocations from './pages/admin/AdminLocations';
 import AdminBranches from './pages/admin/AdminBranches';
 import AdminRooms from './pages/admin/AdminRooms';
 import AdminFacilities from './pages/admin/AdminFacilities';
 import AdminSeats from './pages/admin/AdminSeats';
+import AdminFloorPlans from './pages/admin/AdminFloorPlans';
+import FloorPlanEditor from './pages/admin/FloorPlanEditor';
 import AdminDayPasses from './pages/admin/AdminDayPasses';
 import AdminMeetingRooms from './pages/admin/AdminMeetingRooms';
 import AdminConferenceRooms from './pages/admin/AdminConferenceRooms';
@@ -104,16 +104,16 @@ function App() {
                 <Route index element={<AdminDashboard />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="users" element={<AdminUsers />} />
-                <Route path="bookings" element={<AdminBookings />} />
-                <Route path="wallets" element={<AdminWallets />} />
                 <Route path="locations" element={<AdminLocations />} />
-                <Route path="branches" element={<AdminBranches />} />
+                <Route path="branches" element={<Navigate to="/admin/locations?tab=branches" replace />} />
                 <Route path="rooms" element={<AdminRooms />} />
                 <Route path="facilities" element={<AdminFacilities />} />
                 <Route path="seats" element={<AdminSeats />} />
+                <Route path="floor-plans" element={<AdminFloorPlans />} />
+                <Route path="floor-plans/:floorId" element={<FloorPlanEditor />} />
                 <Route path="day-passes" element={<AdminDayPasses />} />
-                <Route path="meeting-rooms" element={<AdminMeetingRooms />} />
-                <Route path="conference-rooms" element={<AdminConferenceRooms />} />
+                <Route path="meeting-rooms" element={<Navigate to="/admin/rooms?tab=MEETING_ROOM" replace />} />
+                <Route path="conference-rooms" element={<Navigate to="/admin/rooms?tab=CONFERENCE_ROOM" replace />} />
                 <Route path="time-slots" element={<AdminTimeSlots />} />
                 <Route path="settings" element={<AdminSettings />} />
               </Route>

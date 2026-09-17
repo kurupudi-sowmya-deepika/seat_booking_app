@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  MessageSquare, X, Send, Bot, Loader2, AlertCircle, 
-  CheckCircle2, Sparkles, Plus, Trash2, Tag, Building2, Users
+import {
+  MessageSquare, X, Send, Bot, Loader2, AlertCircle,
+  CheckCircle2, Sparkles, Plus, Trash2, Tag, Building2, Users, ShieldAlert
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import BookingFlowCard from './chatbot/BookingFlowCard';
 
 interface Message {
   id: string;
@@ -14,14 +15,38 @@ interface Message {
   metadata?: any;
 }
 
-export const ChatbotWidget: React.FC = () => {
+interface ChatbotWidgetProps {
+  /** 'user' (default) is the SeatSync AI Assistant (booking/wallet/my-bookings tools,
+   * mounted in MainLayout). 'admin' is the Admin AI Assistant (workspace-management
+   * tools, mounted only in AdminLayout) - backend-enforced via a separate
+   * admin-only route, not just this prop. */
+  variant?: 'user' | 'admin';
+}
+
+const VARIANT_COPY = {
+  user: {
+    endpoint: '/chatbot/message',
+    title: 'Seat Booking App Assistant',
+    greeting: "👋 Hi! I'm the Seat Booking App assistant. I can help you search live workspace availability, book seats, reserve meeting rooms, buy day passes, and manage your credits.",
+    actions: ['Book a Seat', 'Book Meeting Room', 'Book Conference Room', 'Day Pass', 'Check Availability', 'My Bookings', 'Cancel Booking'],
+  },
+  admin: {
+    endpoint: '/chatbot/admin-message',
+    title: 'Admin AI Assistant',
+    greeting: "👋 Hi! I'm the Admin AI Assistant. I can help you look up users, bookings, rooms, seats, branches, and facilities, and manage workspace resources - destructive actions always ask for your confirmation first.",
+    actions: ['Show All Bookings', 'List Users', 'Dashboard Stats', 'List Meeting Rooms'],
+  },
+};
+
+export const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({ variant = 'user' }) => {
+  const copy = VARIANT_COPY[variant];
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'init',
-      text: "👋 Hi! I'm the Seat Booking App assistant. I can help you search live workspace availability, book seats, reserve meeting rooms, buy day passes, and manage your credits.",
+      text: copy.greeting,
       isBot: true,
-      actions: ['Book a Seat', 'Book Meeting Room', 'Book Conference Room', 'Day Pass', 'Check Availability', 'My Bookings', 'Cancel Booking']
+      actions: copy.actions
     }
   ]);
   const [input, setInput] = useState('');
@@ -50,7 +75,7 @@ export const ChatbotWidget: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await api.post('/chatbot/message', {
+      const res = await api.post(copy.endpoint, {
         conversation_id: convId,
         message: text
       });
@@ -189,8 +214,80 @@ export const ChatbotWidget: React.FC = () => {
     }
   };
 
+  const handleAdminActionConfirm = async (payload: any) => {
+    try {
+      setLoading(true);
+      // Each branch hits the exact same admin-gated REST endpoint the admin pages
+      // already use - the confirmation card here never mutates anything itself.
+      if (payload.operation === 'cancel_booking') {
+        await api.post(`/bookings/${payload.booking_id}/cancel`);
+      } else if (payload.operation === 'deactivate_seat') {
+        await api.put(`/seats/${payload.seat_id}`, payload.seat_fields);
+      } else if (payload.operation === 'deactivate_room') {
+        await api.put(`/rooms/${payload.room_id}`, payload.room_fields);
+      } else if (payload.operation === 'delete_branch') {
+        await api.delete(`/branches/${payload.branch_id}`);
+      } else if (payload.operation === 'create_floor') {
+        await api.post('/floor-plans/floors', payload.floor_fields);
+      } else if (payload.operation === 'add_desks_to_floor') {
+        // The /save endpoint replaces the ENTIRE draft item set, so the current
+        // draft must be fetched and merged with the staged new seats first -
+        // the same pattern FloorPlanEditor.tsx's own handleSave already uses.
+        // GET .../layout returns a plain array of items, not { items: [...] }.
+        const { data: draftItems } = await api.get(`/floor-plans/floors/${payload.floor_id}/layout`, { params: { draft: true } });
+        await api.post(`/floor-plans/floors/${payload.floor_id}/save`, {
+          items: [...draftItems, ...payload.new_items],
+        });
+      } else if (payload.operation === 'move_room_to_zone') {
+        const { data: draftItems } = await api.get(`/floor-plans/floors/${payload.floor_id}/layout`, { params: { draft: true } });
+        const items = draftItems.map((item: any) =>
+          item.id === payload.item_id ? { ...item, zone_item_id: payload.zone_item_id } : item
+        );
+        await api.post(`/floor-plans/floors/${payload.floor_id}/save`, { items });
+      } else {
+        throw new Error('Unknown admin operation.');
+      }
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        text: `✅ Done: ${payload.summary}`,
+        isBot: true
+      }]);
+    } catch (err: any) {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        text: `❌ Could not complete that action: ${err.response?.data?.detail || err.message}`,
+        isBot: true
+      }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderMetadata = (msg: Message) => {
     if (!msg.metadata || !msg.metadata.action) return null;
+
+    if (msg.metadata.action === 'SHOW_BOOKING_FORM') {
+      return <BookingFlowCard prefill={msg.metadata.payload} />;
+    }
+
+    if (msg.metadata.action === 'REQUIRE_ADMIN_ACTION_CONFIRMATION') {
+      const p = msg.metadata.payload;
+      return (
+        <div className="mt-3 p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-2">
+          <p className="font-bold text-amber-800 flex items-center gap-1.5">
+            <ShieldAlert size={14} /> Confirmation Required
+          </p>
+          <p className="text-[11px] text-gray-700 bg-white p-2.5 rounded-lg border border-amber-100">{p.summary}</p>
+          <button
+            onClick={() => handleAdminActionConfirm(p)}
+            className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs shadow transition-all flex items-center justify-center gap-1.5"
+            disabled={loading}
+          >
+            <CheckCircle2 size={14} /> Confirm & Proceed
+          </button>
+        </div>
+      );
+    }
     
     if (msg.metadata.action === 'REQUIRE_BOOKING_CONFIRMATION') {
       const p = msg.metadata.payload;
@@ -312,7 +409,7 @@ export const ChatbotWidget: React.FC = () => {
               <Bot size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-sm leading-tight">Seat Booking App Assistant</h3>
+              <h3 className="font-bold text-sm leading-tight">{copy.title}</h3>
               <p className="text-[10px] text-blue-100 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online & Ready
               </p>

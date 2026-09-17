@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMsal } from '@azure/msal-react';
-import { 
-  LogOut, LayoutDashboard, Users, Calendar, Wallet, MapPin, 
-  Building2, DoorOpen, Sparkles, Armchair, Tag, Video, 
-  ShieldCheck, Clock, Settings, ArrowLeft, ChevronRight, Menu, X, BarChart3
+import {
+  LogOut, LayoutDashboard, Users, MapPin,
+  Building2, DoorOpen, Sparkles, Armchair, Tag, Video,
+  ShieldCheck, Clock, Settings, ArrowLeft, ChevronRight, Menu, X, BarChart3,
+  LayoutGrid
 } from 'lucide-react';
 import ChatbotWidget from '../components/ChatbotWidget';
 
@@ -29,26 +30,22 @@ export const AdminLayout: React.FC = () => {
         { path: '/admin', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
         { path: '/admin/reports', label: 'Reports & Revenue', icon: <BarChart3 size={18} /> },
         { path: '/admin/users', label: 'User Management', icon: <Users size={18} /> },
-        { path: '/admin/bookings', label: 'All Bookings', icon: <Calendar size={18} /> },
-        { path: '/admin/wallets', label: 'Wallets & Billing', icon: <Wallet size={18} /> },
       ]
     },
     {
       group: 'Workspace Hierarchy',
       items: [
-        { path: '/admin/locations', label: 'Locations', icon: <MapPin size={18} /> },
-        { path: '/admin/branches', label: 'Branches', icon: <Building2 size={18} /> },
+        { path: '/admin/locations', label: 'Locations & Branches', icon: <MapPin size={18} /> },
         { path: '/admin/rooms', label: 'Rooms & Zones', icon: <DoorOpen size={18} /> },
-        { path: '/admin/facilities', label: 'Facilities', icon: <Sparkles size={18} /> },
         { path: '/admin/seats', label: 'Desks & Seats', icon: <Armchair size={18} /> },
+        { path: '/admin/day-passes', label: 'Day Passes', icon: <Tag size={18} /> },
+        { path: '/admin/floor-plans', label: 'Floor Plan Management', icon: <LayoutGrid size={18} /> },
       ]
     },
     {
       group: 'Resources & Products',
       items: [
-        { path: '/admin/day-passes', label: 'Day Passes', icon: <Tag size={18} /> },
-        { path: '/admin/meeting-rooms', label: 'Meeting Rooms', icon: <Video size={18} /> },
-        { path: '/admin/conference-rooms', label: 'Conference Rooms', icon: <ShieldCheck size={18} /> },
+        { path: '/admin/facilities', label: 'Facilities & Amenities', icon: <Sparkles size={18} /> },
         { path: '/admin/time-slots', label: 'Time Slots', icon: <Clock size={18} /> },
         { path: '/admin/settings', label: 'System Settings', icon: <Settings size={18} /> },
       ]
@@ -172,7 +169,7 @@ export const AdminLayout: React.FC = () => {
         </main>
       </div>
 
-      <ChatbotWidget />
+      <ChatbotWidget variant="admin" />
       </div>
     </div>
   );

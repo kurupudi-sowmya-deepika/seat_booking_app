@@ -47,6 +47,7 @@ class DayPassBase(BaseModel):
 class FacilityBase(BaseModel):
     name: str
     description: Optional[str] = None
+    category: Optional[str] = None  # Furniture | Equipment | Facilities | Building
 
 class SeatBase(BaseModel):
     room_id: UUID

@@ -295,7 +295,7 @@ export const MainLayout: React.FC = () => {
         </div>
 
         {/* Floating AI Booking & Intelligence Chatbot */}
-        <ChatbotWidget />
+        <ChatbotWidget variant="user" />
       </div>
     </div>
   );
