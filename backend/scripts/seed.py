@@ -37,8 +37,8 @@ async def seed_db():
             )
             db.add(admin)
             await db.flush()
-            db.add(Wallet(user_id=admin.id, balance=10000.0, currency="INR"))
-            print("✅ Created Admin User (admin@example.com / admin123) with ₹10,000 wallet")
+            db.add(Wallet(user_id=admin.id, balance=50000.0, currency="INR"))
+            print("Created Admin User (admin@example.com / admin123) with 50,000 wallet credits")
 
         # 2. Basic User
         user_email = "user@example.com"
@@ -56,8 +56,8 @@ async def seed_db():
             )
             db.add(user)
             await db.flush()
-            db.add(Wallet(user_id=user.id, balance=2500.0, currency="INR"))
-            print("✅ Created Regular User (user@example.com / user123) with ₹2,500 wallet")
+            db.add(Wallet(user_id=user.id, balance=50000.0, currency="INR"))
+            print("Created Regular User (user@example.com / user123) with 50,000 wallet credits")
 
         # 3. Facilities
         facility_data = [

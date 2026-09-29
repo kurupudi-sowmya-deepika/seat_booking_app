@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "seat-booking": {
+      "command": "python",
+      "args": [
+        "-m",
+        "mcp_server.server"
+      ],
+      "cwd": ".",
+      "env": {
+        "SEAT_BOOKING_API_URL": "http://localhost:8000/api",
+        "SEAT_BOOKING_USER_EMAIL": "sdkurupudi@intuceo.com",
+        "SEAT_BOOKING_USER_PASSWORD": "user123"
+      }
+    }
+  }
+}

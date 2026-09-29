@@ -25,9 +25,11 @@ class Settings(BaseSettings):
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    # Wallet & Credits
+    DEFAULT_INITIAL_WALLET_BALANCE: float = 50000.0
     DEMO_WALLET_MODE: bool = True
     DEMO_INITIAL_CREDIT_EMAIL: str = "sdkurupudi@intuceo.com"
-    DEMO_INITIAL_CREDIT_AMOUNT: float = 10000.0
+    DEMO_INITIAL_CREDIT_AMOUNT: float = 50000.0
     
     # AI Chatbot (OpenRouter - an OpenAI-API-compatible gateway, reached via langchain_openai.ChatOpenAI)
     OPENROUTER_API_KEY: str = ""

@@ -7,7 +7,8 @@ import msal
 
 from app.db.database import get_db
 from app.models.user import User, AuthProvider
-from app.models.wallet import Wallet
+from decimal import Decimal
+from app.models.wallet import Wallet, CreditTransaction, TransactionType
 from app.schemas.user import UserCreate, UserResponse, Token, EntraLogin
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.core.config import settings
@@ -35,8 +36,24 @@ async def register(
     )
     db.add(user)
     await db.flush()  # get user.id
-    wallet = Wallet(user_id=user.id, balance=0.0)
+
+    # Create default corporate wallet with 50,000 credit
+    initial_balance = Decimal(str(settings.DEFAULT_INITIAL_WALLET_BALANCE))
+    wallet = Wallet(user_id=user.id, balance=initial_balance)
     db.add(wallet)
+    await db.flush()
+    db.add(CreditTransaction(
+        wallet_id=wallet.id,
+        user_id=user.id,
+        transaction_type=TransactionType.CREDIT,
+        amount=float(initial_balance),
+        balance_before=0.0,
+        balance_after=float(initial_balance),
+        reference_type="WELCOME_BONUS",
+        description="Default welcome wallet credit",
+        status="SUCCESS"
+    ))
+
     await db.commit()
     await db.refresh(user)
     return user
@@ -120,9 +137,22 @@ async def login_entra(
             db.add(user)
             await db.flush()  # assign user.id
 
-            # Create default corporate wallet for the new user
-            wallet = Wallet(user_id=user.id, balance=0.0)
+            # Create default corporate wallet for the new user with 50,000 credits
+            initial_balance = Decimal(str(settings.DEFAULT_INITIAL_WALLET_BALANCE))
+            wallet = Wallet(user_id=user.id, balance=initial_balance)
             db.add(wallet)
+            await db.flush()
+            db.add(CreditTransaction(
+                wallet_id=wallet.id,
+                user_id=user.id,
+                transaction_type=TransactionType.CREDIT,
+                amount=float(initial_balance),
+                balance_before=0.0,
+                balance_after=float(initial_balance),
+                reference_type="WELCOME_BONUS",
+                description="Default welcome wallet credit",
+                status="SUCCESS"
+            ))
             await db.commit()
             await db.refresh(user)
 

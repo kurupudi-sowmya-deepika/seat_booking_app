@@ -137,6 +137,11 @@ OPENROUTER_MODEL=openai/gpt-4o-mini
 # Frontend & CORS
 FRONTEND_URL=http://localhost:3000,http://localhost:5173
 VITE_API_URL=http://localhost:8000/api
+
+# MCP Server for External AI (WorkPilot / Intuceo.Ai)
+SEAT_BOOKING_API_URL=http://localhost:8000/api
+SEAT_BOOKING_USER_EMAIL=sdkurupudi@intuceo.com
+SEAT_BOOKING_USER_PASSWORD=user123
 ```
 
 ### 4. Backend Setup
@@ -163,11 +168,21 @@ npm run dev
 ```
 Open `http://localhost:3000` in your browser.
 
+### 6. Model Context Protocol (MCP) Server Setup
+For connecting external AI agents (**WorkPilot**, **Intuceo.Ai**, **Claude Desktop**):
+```bash
+# Run the MCP server over STDIO:
+python -m mcp_server.server
+```
+See [`mcp_server/README.md`](mcp_server/README.md) and [`mcp_config.json`](mcp_config.json) for connection manifests and tool descriptions.
+
 ---
 
 ## 🔒 Security & Concurrency Highlights
 - **Zero Double-Bookings:** Enforced at the relational engine level using PostgreSQL partial indexes.
-- **JWT & Bearer Tokens:** Auto-injected in all requests via Axios interceptors.
+- **JWT & Bearer Tokens:** Auto-injected in all requests via Axios interceptors and MCP client headers.
+- **Zero Direct Database Access for AI Agents:** External agents interact strictly via authenticated MCP tool calls routing through FastAPI business logic.
 - **Stripe Webhook Signatures:** Verified using `stripe.Webhook.construct_event`.
 - **Microsoft Graph Avatar Caching:** Cached in local state to minimize roundtrips while preserving real-time synchronization.
+
 

@@ -35,9 +35,23 @@ async def get_my_wallet(
     wallet = result.scalar_one_or_none()
     
     if not wallet:
-        # Create wallet automatically if missing
-        wallet = Wallet(user_id=current_user.id, balance=0.0)
+        # Create wallet automatically if missing with default 50,000 credit
+        initial_balance = Decimal(str(settings.DEFAULT_INITIAL_WALLET_BALANCE))
+        wallet = Wallet(user_id=current_user.id, balance=initial_balance)
         db.add(wallet)
+        await db.flush()
+        db.add(CreditTransaction(
+            wallet_id=wallet.id,
+            user_id=current_user.id,
+            transaction_type=TransactionType.CREDIT,
+            amount=float(initial_balance),
+            balance_before=0.0,
+            balance_after=float(initial_balance),
+            reference_type="WELCOME_BONUS",
+            reference_id=None,
+            description="Default welcome wallet credit",
+            status="SUCCESS"
+        ))
         await db.commit()
         result = await db.execute(
             select(Wallet)
@@ -45,36 +59,24 @@ async def get_my_wallet(
             .where(Wallet.id == wallet.id)
         )
         wallet = result.scalar_one()
-        
-    # Provide the requested one-time demo balance when this user next opens the app.
-    # The ledger check prevents it being issued again after the balance is spent.
-    if (
-        settings.DEMO_WALLET_MODE
-        and current_user.email.lower() == settings.DEMO_INITIAL_CREDIT_EMAIL.lower()
-    ):
-        initial_credit = (await db.execute(
-            select(CreditTransaction).where(
-                CreditTransaction.user_id == current_user.id,
-                CreditTransaction.reference_type == "DEMO_INITIAL_CREDIT"
-            )
-        )).scalar_one_or_none()
-        if not initial_credit:
-            balance_before = wallet.balance
-            wallet.balance += Decimal(str(settings.DEMO_INITIAL_CREDIT_AMOUNT))
-            db.add(CreditTransaction(
-                wallet_id=wallet.id,
-                user_id=current_user.id,
-                transaction_type=TransactionType.CREDIT,
-                amount=settings.DEMO_INITIAL_CREDIT_AMOUNT,
-                balance_before=balance_before,
-                balance_after=wallet.balance,
-                reference_type="DEMO_INITIAL_CREDIT",
-                reference_id=None,
-                description="Initial demo wallet credit",
-                status="SUCCESS"
-            ))
-            await db.commit()
-            await db.refresh(wallet)
+    elif wallet.balance == Decimal("0.0") and len(wallet.transactions) == 0:
+        # If user has an empty wallet with no transaction history, seed the 50,000 default balance
+        initial_balance = Decimal(str(settings.DEFAULT_INITIAL_WALLET_BALANCE))
+        wallet.balance = initial_balance
+        db.add(CreditTransaction(
+            wallet_id=wallet.id,
+            user_id=current_user.id,
+            transaction_type=TransactionType.CREDIT,
+            amount=float(initial_balance),
+            balance_before=0.0,
+            balance_after=float(initial_balance),
+            reference_type="WELCOME_BONUS",
+            reference_id=None,
+            description="Default welcome wallet credit",
+            status="SUCCESS"
+        ))
+        await db.commit()
+        await db.refresh(wallet)
 
     return wallet
 
