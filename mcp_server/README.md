@@ -9,6 +9,8 @@ The **Seat Booking MCP Server** exposes the user-portal capabilities of the Seat
 | MCP Tool | Description |
 | :--- | :--- |
 | `authenticate_employee` | Authenticates a real employee (email + password) and returns their `auth_token` - call this first |
+| `get_current_user` | Returns the acting employee's id, name, email and role (confirms whose identity is in use) |
+| `get_users` | Searches active colleagues by name/email (id, name, email only; min 2 chars, max 10 results) |
 | `get_locations` | Lists active global hubs (Jacksonville, McLean, London, Bangalore, Hyderabad) |
 | `get_branches` | Retrieves campus branches and offices for a given location |
 | `get_floors_and_rooms` | Retrieves floors, workspaces, meeting rooms, and conference halls |
@@ -45,6 +47,26 @@ it is **disabled by default** and must be explicitly opted into with
 `SEAT_BOOKING_USER_PASSWORD` values in your own local environment. Never enable
 it, and never commit real credentials to this repo's tracked config files.
 
+### Trusted-caller mode (used by WorkPilot)
+
+An application such as WorkPilot already knows who its signed-in employee is but does not hold their
+Seat Booking password. For that case the MCP server and the Seat API support a *trusted caller*:
+
+```
+client --(Authorization: Bearer MCP_AUTH_TOKEN, tool arg employee_email)--> MCP server
+MCP server --(X-Service-Token: WORKPILOT_SERVICE_TOKEN, X-On-Behalf-Of-Email)--> Seat API
+```
+
+- The Seat API then acts as that **existing, active** user with exactly that user's own role. It never
+  creates accounts and never elevates a role; unknown or inactive emails get 401. It is disabled unless
+  `WORKPILOT_SERVICE_TOKEN` is set.
+- Because a caller can name any employee, the streamable-http endpoint **must** be protected: set
+  `MCP_AUTH_TOKEN`. The server refuses to start if `WORKPILOT_SERVICE_TOKEN` is set without it. Keep the
+  port on an internal network and store both tokens in a secret manager.
+- Only pass `employee_email` from a trusted backend that took it from its own authenticated session.
+- Regression test for the Seat API side: `backend/tests/test_service_token_auth.py <existing-user-email>`
+  (read-only).
+
 ## ⚙️ Configuration & Environment Variables
 
 The MCP server connects to the running FastAPI application over HTTP.
@@ -66,6 +88,11 @@ MCP_PORT=8100
 # Local-testing-only shared identity - see "Authentication model" above.
 # Leave MCP_ALLOW_DEFAULT_IDENTITY unset/false in any shared or production environment.
 MCP_ALLOW_DEFAULT_IDENTITY=false
+
+# Bearer token every client must send over streamable-http (required with WORKPILOT_SERVICE_TOKEN).
+MCP_AUTH_TOKEN=
+# Shared with the Seat API (same variable name there). Enables trusted-caller mode.
+WORKPILOT_SERVICE_TOKEN=
 SEAT_BOOKING_USER_EMAIL=
 SEAT_BOOKING_USER_PASSWORD=
 
