@@ -27,7 +27,7 @@ if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
         cp .env.example .env
         echo "[INFO] Created .env from .env.example."
-        echo "[IMPORTANT] Update your PostgreSQL credentials in .env if needed."
+        echo "[IMPORTANT] Update your PostgreSQL credentials and API keys in .env if needed."
     else
         echo "[WARNING] .env.example not found. Please create .env manually."
     fi
@@ -39,12 +39,17 @@ fi
 echo ""
 echo "[2/4] Setting up Backend..."
 cd backend
-if [ ! -d ".venv" ]; then
-    echo "[INFO] Creating Python virtual environment in backend/.venv..."
-    python3 -m venv .venv
+if [ ! -d "venv" ] && [ ! -d ".venv" ]; then
+    echo "[INFO] Creating Python virtual environment in backend/venv..."
+    python3 -m venv venv
 fi
 
-source .venv/bin/activate
+if [ -f "venv/bin/activate" ]; then
+    source venv/bin/activate
+elif [ -f ".venv/bin/activate" ]; then
+    source .venv/bin/activate
+fi
+
 echo "[INFO] Installing Python dependencies..."
 pip install -r requirements.txt --quiet
 pip install -r ../mcp_server/requirements.txt --quiet
@@ -67,10 +72,10 @@ echo "====================================================================="
 echo " SETUP COMPLETED SUCCESSFULLY!"
 echo "====================================================================="
 echo ""
-echo "To start the application, open two separate terminal windows:"
+echo "To start the application, open separate terminal windows:"
 echo ""
 echo "1. Backend Server:"
-echo "   cd backend && source .venv/bin/activate"
+echo "   cd backend && source venv/bin/activate"
 echo "   uvicorn app.main:app --reload --port 8000"
 echo ""
 echo "2. Frontend Web App:"
@@ -78,9 +83,12 @@ echo "   cd frontend"
 echo "   npm run dev"
 echo ""
 echo "3. (Optional) MCP Server for AI Agents:"
+echo "   export MCP_TRANSPORT=\"streamable-http\""
+echo "   export MCP_PORT=\"8100\""
 echo "   python3 -m mcp_server.server"
 echo ""
 echo "Access URLs:"
-echo "- Frontend: http://localhost:3000"
-echo "- Backend:  http://localhost:8000/docs"
+echo "- Frontend Web App:  http://localhost:5173"
+echo "- Swagger API Docs:  http://localhost:8000/docs"
+echo "- MCP Server:        http://localhost:8100/mcp"
 echo ""
