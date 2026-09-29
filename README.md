@@ -46,7 +46,7 @@ A modern, production-grade enterprise workspace booking platform built with **Re
 
 ### 7. 🤖 AI Conversational Booking Assistant (LangChain & LangGraph)
 - **Natural Language Workspace Concierge:** Conversational chatbot widget accessible anywhere in the app.
-- **Tool-Calling Architecture:** Built with `langchain.agents.create_agent` and `ChatOpenAI` communicating with OpenRouter (default: `openai/gpt-4o-mini`).
+- **Tool-Calling Architecture:** Built with `langchain.agents.create_agent` and `ChatGoogleGenerativeAI` communicating with Google Gemini (default: `gemini-3.1-flash-lite`).
 - **Safe Execution Pattern:** AI searches availability and returns interactive confirmation cards; transactions are executed through validated API endpoints upon user confirmation.
 
 ### 8. 🛠️ Administrative Command Center & Resource Master
@@ -101,7 +101,7 @@ seat_booking_app/
 - **Frontend:** React 19, TypeScript, Vite, React Router v6, Tailwind CSS, `@azure/msal-react`, Axios, Lucide React, Framer Motion.
 - **Backend:** FastAPI, Python 3.10+, SQLAlchemy 2.0 (Async), `asyncpg`, Alembic, PyJWT, Pydantic v2, Uvicorn.
 - **Database:** PostgreSQL with partial unique constraints.
-- **AI / LLM:** LangChain, LangGraph, OpenRouter (`openai/gpt-4o-mini`).
+- **AI / LLM:** LangChain, LangGraph, Google Gemini (`gemini-3.1-flash-lite`).
 - **Payments:** Stripe Checkout & Webhooks.
 
 ---
@@ -142,9 +142,9 @@ STRIPE_SECRET_KEY=sk_test_...
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 
-# AI Chatbot (OpenRouter)
-OPENROUTER_API_KEY=sk-or-v1-...
-OPENROUTER_MODEL=openai/gpt-4o-mini
+# AI Chatbot (Google Gemini)
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.1-flash-lite
 
 # Frontend & CORS
 FRONTEND_URL=http://localhost:3000,http://localhost:5173

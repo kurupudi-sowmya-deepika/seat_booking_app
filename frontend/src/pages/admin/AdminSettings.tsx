@@ -114,7 +114,7 @@ export const AdminSettings: React.FC = () => {
             { id: 'policies', label: 'Booking & Cancellation', icon: <Clock size={18} /> },
             { id: 'auth', label: 'SSO & Authentication', icon: <ShieldCheck size={18} /> },
             { id: 'payments', label: 'Billing & Stripe', icon: <CreditCard size={18} /> },
-            { id: 'ai', label: 'OpenAI Concierge', icon: <Sparkles size={18} /> },
+            { id: 'ai', label: 'AI Concierge', icon: <Sparkles size={18} /> },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -293,7 +293,7 @@ export const AdminSettings: React.FC = () => {
             {activeTab === 'ai' && (
               <div className="space-y-5">
                 <h3 className="text-base font-black text-gray-900 border-b border-gray-100 pb-3">
-                  OpenAI (GPT-5.4 Mini) Workspace Assistant
+                  Google Gemini Workspace Assistant
                 </h3>
 
                 <div className="space-y-4">

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin
 from app.api.routes.floor_plans import _get_floor_or_404
-from app.chatbot.langchain_service import OpenRouterConfigError
+from app.chatbot.langchain_service import LLMConfigError
 from app.db.database import get_db
 from app.models.user import User
 from app.schemas.floor_plan_ai import GenerateRoomsRequest, GenerateRoomsResponse
@@ -37,5 +37,5 @@ async def generate_rooms(
         raise HTTPException(status_code=400, detail="pending_rooms is required when regenerating a single room.")
     try:
         return await generate_rooms_for_floor(db, floor, payload, current_user)
-    except OpenRouterConfigError as e:
+    except LLMConfigError as e:
         raise HTTPException(status_code=503, detail=str(e))

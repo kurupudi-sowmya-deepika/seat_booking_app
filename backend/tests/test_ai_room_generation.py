@@ -3,7 +3,7 @@ repo's convention). Run with the venv active from `backend/`:
 
     python tests/test_ai_room_generation.py
 
-Avoids real OpenRouter calls by monkeypatching `app.services.floor_plan_ai.get_model`
+Avoids real Gemini calls by monkeypatching `app.services.floor_plan_ai.get_model`
 to return a `FakeMessagesListChatModel` subclassed with a no-op `bind_tools()` (the
 base fake model doesn't implement it - see CLAUDE.md's chatbot-testing note for the
 same pattern). Requires `scripts/seed.py` to have been run first (logs in as the

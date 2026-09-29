@@ -2,11 +2,11 @@
 
 This module owns everything specific to running the chatbot conversation
 through LangChain's `create_agent` (a LangGraph agent under the hood):
-building the `ChatOpenAI` model, wrapping `ChatbotTools` methods as safe
-tools, and running one turn of the tool-calling agent loop.
+building the `ChatGoogleGenerativeAI` (Gemini) model, wrapping `ChatbotTools`
+methods as safe tools, and running one turn of the tool-calling agent loop.
 `app/chatbot/service.py` is the provider-agnostic orchestrator (conversation
 history, system prompt, response shaping) and should not import `langchain*`
-or `openai` directly - that keeps a future swap contained to this file.
+or a provider SDK directly - that keeps a future swap contained to this file.
 """
 import functools
 import json
@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Sequence
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphRecursionError
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.core.config import settings
 
@@ -29,40 +29,35 @@ logger = logging.getLogger(__name__)
 # graph steps (~12 tool calls) and raises GraphRecursionError past that.
 RECURSION_LIMIT = 25
 
-# The OpenAI SDK underneath ChatOpenAI retries transient errors itself; both
-# are set explicitly so a hung request surfaces as a clear, handleable
-# timeout instead of blocking the chat request indefinitely.
+# Both are set explicitly so a hung or
+# failing request surfaces as a clear, handleable error instead of blocking
+# the chat request for minutes. Retries are generous because Gemini returns
+# transient 503 "high demand" errors often enough to break multi-turn flows.
 REQUEST_TIMEOUT_SECONDS = 30.0
-MAX_SDK_RETRIES = 2
+MAX_SDK_RETRIES = 5
 
 
-class OpenRouterConfigError(RuntimeError):
-    """Raised when OPENROUTER_API_KEY is missing or blank at request time."""
+class LLMConfigError(RuntimeError):
+    """Raised when GEMINI_API_KEY is missing or blank at request time."""
 
 
-def get_model() -> ChatOpenAI:
+def get_model() -> ChatGoogleGenerativeAI:
     """Build the chat model from server-side settings only.
 
-    OpenRouter is reached through `langchain_openai.ChatOpenAI` since it's an
-    OpenAI-API-compatible gateway (same request/response shapes, including
-    tool/function calling) - just pointed at OPENROUTER_BASE_URL with an
-    OpenRouter key and model id instead of api.openai.com.
-
-    Raises OpenRouterConfigError with a clear, actionable message if the key
-    isn't configured - callers turn this into a friendly in-chat message
-    rather than a raw 500, but it's still logged loudly server-side so a
+    Raises LLMConfigError with a clear, actionable message if the key isn't
+    configured - callers turn this into a friendly in-chat message rather
+    than a raw 500, but it's still logged loudly server-side so a
     misconfigured deployment is obvious from the logs.
     """
-    api_key = settings.OPENROUTER_API_KEY
+    api_key = settings.GEMINI_API_KEY
     if not api_key:
-        raise OpenRouterConfigError(
-            "OPENROUTER_API_KEY is not configured. Set OPENROUTER_API_KEY in the root "
+        raise LLMConfigError(
+            "GEMINI_API_KEY is not configured. Set GEMINI_API_KEY in the root "
             ".env file and restart the backend to enable the AI assistant."
         )
-    return ChatOpenAI(
-        model=settings.OPENROUTER_MODEL,
-        api_key=api_key,
-        base_url=settings.OPENROUTER_BASE_URL,
+    return ChatGoogleGenerativeAI(
+        model=settings.GEMINI_MODEL,
+        google_api_key=api_key,
         timeout=REQUEST_TIMEOUT_SECONDS,
         max_retries=MAX_SDK_RETRIES,
     )
@@ -118,7 +113,7 @@ def _extract_metadata(messages: Sequence[BaseMessage]) -> Dict[str, Any]:
 
 
 async def run_agentic_chat(
-    model: ChatOpenAI,
+    model: ChatGoogleGenerativeAI,
     system_instruction: str,
     history: List[BaseMessage],
     user_message: str,
@@ -130,8 +125,7 @@ async def run_agentic_chat(
     No checkpointer is used - conversation memory is the same in-memory,
     per-conversation message list `service.py` already keeps (consistent
     with the rest of this app's "not persisted, resets on restart" chatbot
-    state), just built from LangChain BaseMessage objects instead of raw
-    OpenAI SDK message dicts. The full transcript is passed in and the full
+    state), built from LangChain BaseMessage objects. The full transcript is passed in and the full
     updated transcript comes back in `result["messages"]`.
     """
     agent = create_agent(
@@ -157,7 +151,9 @@ async def run_agentic_chat(
 
     messages: List[BaseMessage] = result["messages"]
     new_messages = messages[len(history):]
-    final_text = messages[-1].content if messages else ""
+    # `.text` flattens content blocks to a plain string (Gemini can return a
+    # list of blocks rather than a bare string in `.content`).
+    final_text = messages[-1].text if messages else ""
 
     return ChatTurnResult(
         final_text=final_text or "I'm not sure how to help with that.",

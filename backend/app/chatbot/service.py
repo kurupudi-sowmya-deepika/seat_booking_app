@@ -10,7 +10,7 @@ from app.chatbot.tools import ChatbotTools
 from app.chatbot.admin_tools import AdminChatbotTools
 from app.chatbot.schemas import ChatResponse
 from app.chatbot.langchain_service import (
-    OpenRouterConfigError,
+    LLMConfigError,
     get_model,
     make_safe_tool,
     run_agentic_chat,
@@ -106,7 +106,7 @@ async def _run_chat(
     only in which tools class and system prompt are used."""
     try:
         model = get_model()
-    except OpenRouterConfigError as e:
+    except LLMConfigError as e:
         logger.error(str(e))
         return ChatResponse(
             conversation_id=conversation_id,
@@ -147,7 +147,7 @@ async def process_chat_message(
     bot_tools = ChatbotTools(db=db, current_user=current_user)
     return await _run_chat(
         message, conversation_id, current_user, SYSTEM_INSTRUCTION, bot_tools,
-        unconfigured_message="The AI assistant isn't configured yet. Please set `OPENROUTER_API_KEY` in the environment and restart the backend to enable live responses.",
+        unconfigured_message="The AI assistant isn't configured yet. Please set `GEMINI_API_KEY` in the environment and restart the backend to enable live responses.",
         default_actions=["Book a Seat", "Check Availability", "My Bookings"],
     )
 
@@ -160,6 +160,6 @@ async def process_admin_chat_message(
     admin_tools = AdminChatbotTools(db=db, current_user=current_user)
     return await _run_chat(
         message, conversation_id, current_user, ADMIN_SYSTEM_INSTRUCTION, admin_tools,
-        unconfigured_message="The Admin AI Assistant isn't configured yet. Please set `OPENROUTER_API_KEY` in the environment and restart the backend to enable live responses.",
+        unconfigured_message="The Admin AI Assistant isn't configured yet. Please set `GEMINI_API_KEY` in the environment and restart the backend to enable live responses.",
         default_actions=["Show All Bookings", "List Users", "Dashboard Stats"],
     )

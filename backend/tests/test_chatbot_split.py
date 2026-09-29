@@ -3,7 +3,7 @@ convention). Run with the venv active from `backend/`:
 
     python tests/test_chatbot_split.py
 
-Avoids real OpenRouter calls by monkeypatching `app.chatbot.service.get_model`
+Avoids real Gemini calls by monkeypatching `app.chatbot.service.get_model`
 (the name bound in that module's own namespace) to return a
 `FakeMessagesListChatModel` subclassed with a no-op `bind_tools()` - the same
 pattern already established in test_ai_room_generation.py. Requires

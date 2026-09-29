@@ -455,10 +455,9 @@ async def generate_rooms_for_floor(
     prompt = _build_prompt(floor, request, existing_items, available_names, amenity_vocabulary)
 
     model = get_model()
-    # method="function_calling" (not the newer default "json_schema") because OpenRouter
-    # proxies plain tool/function calling far more broadly across non-native-OpenAI models
-    # than OpenAI's strict Structured Output response_format - the same reliability
-    # tradeoff already documented for the chat agent's tool-calling loop.
+    # method="function_calling" (not the default "json_schema") keeps the same tool-calling
+    # path the chat agent already relies on, rather than Gemini's response-schema mode, which
+    # supports a narrower subset of JSON Schema than this Pydantic model may emit.
     plan: GeneratedRoomsPlan = await model.with_structured_output(
         GeneratedRoomsPlan, method="function_calling"
     ).ainvoke(prompt)

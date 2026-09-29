@@ -22,7 +22,7 @@ All services read the one root `.env` (see `.env.example`). Grouped reference:
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `VITE_STRIPE_PUBLISHABLE_KEY` | Use `sk_live_*`/`whsec_*` in production, obtained from the Stripe dashboard. |
 | Wallet demo mode | `DEMO_WALLET_MODE`, `DEMO_INITIAL_CREDIT_EMAIL`, `DEMO_INITIAL_CREDIT_AMOUNT` | `DEMO_WALLET_MODE` **must be `false`** outside local demos - when true it lets any logged-in user top up their own wallet with no real payment. |
 | Entra ID (SSO) | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_AUTHORITY`, `VITE_ENTRA_CLIENT_ID`, `VITE_ENTRA_TENANT_ID`, `VITE_ENTRA_REDIRECT_URI` | `ENTRA_TENANT_ID`/`ENTRA_CLIENT_ID` must be set for `POST /auth/login/entra` to work at all - it now cryptographically verifies the incoming Microsoft token against these and refuses (503) if unconfigured. |
-| AI Chatbot | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_BASE_URL` | See `backend/app/chatbot/` docs in the codebase for model-choice notes. |
+| AI Chatbot | `GEMINI_API_KEY`, `GEMINI_MODEL` | The model must support tool/function calling; re-test a multi-step booking conversation before changing it. |
 | Frontend/CORS | `FRONTEND_URL`, `VITE_API_URL` | `VITE_API_URL` is baked into the frontend at **build** time (Docker build-arg), not read at container start - see the frontend Dockerfile note. |
 | MCP server | `MCP_TRANSPORT`, `MCP_HOST`, `MCP_PORT`, `MCP_ALLOW_DEFAULT_IDENTITY`, `SEAT_BOOKING_API_URL`, `SEAT_BOOKING_USER_EMAIL`, `SEAT_BOOKING_USER_PASSWORD`, `SEAT_BOOKING_AUTH_TOKEN`, `MCP_REQUEST_TIMEOUT` | See [`mcp_server/README.md`](mcp_server/README.md) for the full authentication model. Leave `MCP_ALLOW_DEFAULT_IDENTITY=false` in any shared environment. |
 
@@ -33,7 +33,7 @@ This audit found real (non-placeholder) values already sitting in the local
 should be rotated before/while going to production, since anything that
 touched a shared machine or was ever logged should be treated as exposed:
 
-- `OPENROUTER_API_KEY` - generate a fresh key at https://openrouter.ai/settings/api-keys and revoke the old one.
+- `GEMINI_API_KEY` - generate a fresh key at https://aistudio.google.com/apikey and delete the old one.
 - `DB_PASSWORD` - change the Postgres user's password and update `.env` to match.
 - The seeded demo accounts (`admin@example.com` / `user@example.com`, weak passwords from `backend/scripts/seed.py`) - fine for a local dev database, but never run `seed.py` against a real production database, and change these passwords immediately if it ever was.
 

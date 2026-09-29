@@ -47,10 +47,9 @@ class Settings(BaseSettings):
     DEMO_INITIAL_CREDIT_EMAIL: str = "sdkurupudi@intuceo.com"
     DEMO_INITIAL_CREDIT_AMOUNT: float = 50000.0
     
-    # AI Chatbot (OpenRouter - an OpenAI-API-compatible gateway, reached via langchain_openai.ChatOpenAI)
-    OPENROUTER_API_KEY: str = ""
-    OPENROUTER_MODEL: str = "openai/gpt-4o-mini"
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    # AI Chatbot (Google Gemini via langchain_google_genai.ChatGoogleGenerativeAI)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     
     # Entra ID
     ENTRA_TENANT_ID: str = ""

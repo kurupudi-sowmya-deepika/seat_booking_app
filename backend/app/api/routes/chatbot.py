@@ -1,8 +1,19 @@
 import logging
 import uuid
 from typing import Awaitable, Callable
-import openai
+import httpx
 from fastapi import APIRouter, Depends
+from langchain_core.exceptions import (
+    ModelAPIError,
+    ModelAuthenticationError,
+    ModelConnectionError,
+    ModelError,
+    ModelInvalidRequestError,
+    ModelNotFoundError,
+    ModelPermissionDeniedError,
+    ModelRateLimitError,
+    ModelTimeoutError,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.database import get_db
@@ -22,6 +33,17 @@ router = APIRouter()
 _FALLBACK_ACTIONS = ["Book a Seat", "Meeting Rooms", "My Bookings"]
 _ADMIN_FALLBACK_ACTIONS = ["Show All Bookings", "List Users", "Dashboard Stats"]
 
+# Gemini reports a bad/revoked API key as HTTP 400 "API key not valid" (surfaced as
+# ModelInvalidRequestError), so every "the deployment is misconfigured" class is
+# grouped here rather than only ModelAuthenticationError.
+_MISCONFIGURED_ERRORS = (
+    ModelAuthenticationError,
+    ModelPermissionDeniedError,
+    ModelNotFoundError,
+    ModelInvalidRequestError,
+)
+_UNREACHABLE_ERRORS = (ModelTimeoutError, ModelConnectionError, httpx.TimeoutException, httpx.TransportError)
+
 
 async def _dispatch(
     process_coro: Callable[[], Awaitable[ChatResponse]],
@@ -29,36 +51,36 @@ async def _dispatch(
     current_user: User,
     fallback_actions: list,
 ) -> ChatResponse:
-    """Shared error handling for both the user and admin chat routes - OpenRouter is
-    reached via langchain_openai's ChatOpenAI (an OpenAI-API-compatible client), so
-    transport-level errors still surface as openai.* exception types regardless of
-    which assistant is running."""
+    """Shared error handling for both the user and admin chat routes - Gemini is
+    reached via langchain_google_genai, which classifies provider failures under
+    langchain_core's provider-neutral `Model*Error` types regardless of which
+    assistant is running."""
     try:
         return await process_coro()
-    except openai.RateLimitError as e:
-        logger.warning("OpenRouter rate limit hit for user %s: %s", current_user.id, e)
+    except ModelRateLimitError as e:
+        logger.warning("Gemini rate limit hit for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="The AI assistant is receiving too many requests right now. Please wait a moment and try again.",
             suggested_actions=fallback_actions
         )
-    except openai.AuthenticationError as e:
+    except _MISCONFIGURED_ERRORS as e:
         # Never surface the key or the raw SDK error - just that the deployment is misconfigured.
-        logger.error("OpenRouter authentication failed (check OPENROUTER_API_KEY) for user %s: %s", current_user.id, e)
+        logger.error("Gemini rejected the request (check GEMINI_API_KEY / GEMINI_MODEL) for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="The AI assistant is temporarily unavailable. Please try again shortly, or use the booking pages directly.",
             suggested_actions=fallback_actions
         )
-    except (openai.APITimeoutError, openai.APIConnectionError) as e:
-        logger.warning("OpenRouter request timed out/unreachable for user %s: %s", current_user.id, e)
+    except _UNREACHABLE_ERRORS as e:
+        logger.warning("Gemini request timed out/unreachable for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="I'm unable to connect to the AI assistant right now. Please try again in a moment.",
             suggested_actions=fallback_actions
         )
-    except openai.APIError as e:
-        logger.warning("OpenRouter API error for user %s: %s", current_user.id, e)
+    except (ModelAPIError, ModelError) as e:
+        logger.warning("Gemini API error for user %s: %s", current_user.id, e)
         return ChatResponse(
             conversation_id=conv_id,
             message="The AI assistant is temporarily unavailable. Please try again shortly, or use the booking pages directly.",
