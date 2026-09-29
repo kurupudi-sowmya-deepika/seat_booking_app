@@ -19,7 +19,7 @@ load_dotenv()
 
 async def seed_db():
     async with AsyncSessionLocal() as db:
-        print("🌱 Seeding enterprise workspace database...")
+        print("[INFO] Seeding enterprise workspace database...")
         
         # 1. Admin User
         admin_email = "admin@example.com"
@@ -101,7 +101,7 @@ async def seed_db():
             facilities_map[name] = fac
 
         await db.commit()
-        print(f"✅ Loaded {len(facilities_map)} Facilities")
+        print(f"[INFO] Loaded {len(facilities_map)} Facilities")
 
         # 4. Locations (with GPS coordinates for Auto-Detect)
         location_seeds = [
@@ -198,7 +198,7 @@ async def seed_db():
             branches.append(br)
 
         await db.commit()
-        print(f"✅ Loaded {len(branches)} Branches")
+        print(f"[INFO] Loaded {len(branches)} Branches")
 
         DEFAULT_DAY_PASS_AMENITIES = [
             "Wi-Fi", "Parking", "Cafeteria", "Power Outlet", "Lounge Access", "Printing", "Coffee/Tea"
@@ -355,7 +355,7 @@ async def seed_db():
                 db.add(ts)
 
         await db.commit()
-        print("✨ Database successfully seeded with enterprise locations, branches, rooms, seats, day passes, meeting & conference rooms!")
+        print("[SUCCESS] Database successfully seeded with enterprise locations, branches, rooms, seats, day passes, meeting & conference rooms!")
 
 if __name__ == "__main__":
     asyncio.run(seed_db())

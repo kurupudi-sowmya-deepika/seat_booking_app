@@ -1,5 +1,14 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from typing import Optional
+from dotenv import load_dotenv
+
+# Find root .env file
+root_env = Path(__file__).resolve().parent.parent.parent.parent / ".env"
+backend_env = Path(__file__).resolve().parent.parent.parent / ".env"
+load_dotenv(backend_env)
+load_dotenv(root_env)
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Seat Booking API"
@@ -10,11 +19,11 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     # Database
-    DB_USER: str
-    DB_PASSWORD: str
-    DB_HOST: str
+    DB_USER: str = "postgres"
+    DB_PASSWORD: str = "postgres"
+    DB_HOST: str = "localhost"
     DB_PORT: str = "5432"
-    DB_NAME: str
+    DB_NAME: str = "seat_booking"
     
     @property
     def DATABASE_URL(self) -> str:
@@ -22,7 +31,7 @@ class Settings(BaseSettings):
         return f"postgresql+asyncpg://{self.DB_USER}:{quote_plus(self.DB_PASSWORD)}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
     
     # Security
-    JWT_SECRET: str
+    JWT_SECRET: str = "seat-booking-jwt-secret-key-change-in-production-2026"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 # 8 days
     
@@ -54,7 +63,13 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = True
-        env_file = "../.env"
+        env_file = (
+            str(Path(__file__).resolve().parent.parent.parent.parent / ".env"),
+            str(Path(__file__).resolve().parent.parent.parent / ".env"),
+            ".env",
+            "../.env"
+        )
         extra = "ignore"
 
 settings = Settings()
+
