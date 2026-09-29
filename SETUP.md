@@ -108,7 +108,9 @@ Web Application Portal: **`http://localhost:3000`**
 ---
 
 ### 6. Model Context Protocol (MCP) Server Setup
-For connecting external AI agents (**WorkPilot**, **Intuceo.Ai**, **Claude Desktop**):
+
+#### Local Development (stdio):
+For local AI tools (e.g., Claude Desktop, Antigravity):
 ```bash
 # In the root folder (with python venv active):
 python -m mcp_server.server
@@ -121,6 +123,82 @@ python -m mcp_server.test_mcp
 
 ---
 
+## 🚀 Production Deployment
+
+### Option A: Complete Stack via Docker Compose (Recommended)
+The full stack including PostgreSQL, FastAPI Backend, React Frontend, and MCP Server (running in `streamable-http` on port `8100`) can be deployed with Docker Compose:
+
+```bash
+# 1. Clone repo and copy environment file
+cp .env.example .env
+
+# 2. Build and start all services in background
+docker compose up -d --build
+
+# 3. View status and logs
+docker compose ps
+docker compose logs -f mcp_server
+```
+
+**Deployed Services & Ports:**
+- **Web App Frontend**: `http://<HOST_IP>:3000`
+- **FastAPI REST Backend**: `http://<HOST_IP>:8000`
+- **MCP Server (Streamable HTTP)**: `http://<HOST_IP>:8100/mcp`
+- **PostgreSQL Database**: `5432`
+
+---
+
+### Option B: Standalone MCP Server Deployment (Linux / Systemd)
+
+If hosting the MCP server as a dedicated background service on a Linux VM:
+
+1. **Install requirements:**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+pip install -r mcp_server/requirements.txt
+```
+
+2. **Create Systemd service file** (`/etc/systemd/system/seat-booking-mcp.service`):
+```ini
+[Unit]
+Description=Seat Booking MCP Server (Streamable HTTP)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/path/to/seat_booking_app
+Environment="PATH=/path/to/seat_booking_app/.venv/bin"
+Environment="MCP_TRANSPORT=streamable-http"
+Environment="MCP_HOST=0.0.0.0"
+Environment="MCP_PORT=8100"
+Environment="SEAT_BOOKING_API_URL=http://localhost:8000/api"
+ExecStart=/path/to/seat_booking_app/.venv/bin/python -m mcp_server.server
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+3. **Start and enable the service:**
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now seat-booking-mcp
+sudo systemctl status seat-booking-mcp
+```
+
+---
+
+### Connecting AI Platforms to Deployed MCP
+In **WorkPilot**, **Intuceo.Ai**, or any enterprise MCP client:
+- **Transport Type**: `streamable-http` (or `SSE`)
+- **MCP Server URL**: `http://<YOUR_SERVER_IP>:8100/mcp` (or `https://<YOUR_DOMAIN>/mcp`)
+
+---
+
 ## 🔑 Default Credentials
 
 | Role | Email | Password | Starting Wallet Balance |
@@ -128,3 +206,4 @@ python -m mcp_server.test_mcp
 | **System Admin** | `admin@example.com` | `admin123` | ₹50,000.00 |
 | **Employee User** | `user@example.com` | `user123` | ₹50,000.00 |
 | **Microsoft SSO** | *Any corporate email* | *Microsoft SSO* | ₹50,000.00 *(Auto-credited)* |
+
