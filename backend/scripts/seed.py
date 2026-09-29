@@ -106,58 +106,85 @@ async def seed_db():
         # 4. Locations (with GPS coordinates for Auto-Detect)
         location_seeds = [
             {
-                "name": "Bangalore HQ", 
-                "address": "Prestige Tech Park, Outer Ring Road", 
-                "city": "Bangalore", 
-                "state": "Karnataka", 
-                "country": "India", 
-                "postal_code": "560103",
-                "latitude": 12.9352, 
-                "longitude": 77.6946
+                "name": "Intuceo Inc.",
+                "address": "4110 Southpoint Blvd, Suite 124, Jacksonville, FL 32216, USA",
+                "city": "Jacksonville",
+                "state": "Florida",
+                "country": "USA",
+                "postal_code": "32216",
+                "latitude": 30.3322,
+                "longitude": -81.6557
             },
             {
-                "name": "Hyderabad Hub", 
-                "address": "Cyber Towers, Hitec City", 
-                "city": "Hyderabad", 
-                "state": "Telangana", 
-                "country": "India", 
+                "name": "Intuceo Inc.",
+                "address": "1765 Greensboro Station Place, Suite 900, McLean, VA 22102, USA",
+                "city": "McLean",
+                "state": "Virginia",
+                "country": "USA",
+                "postal_code": "22102",
+                "latitude": 38.9339,
+                "longitude": -77.1773
+            },
+            {
+                "name": "Intuceo UK",
+                "address": "London, United Kingdom",
+                "city": "London",
+                "state": "Greater London",
+                "country": "UK",
+                "postal_code": "EC1A 1BB",
+                "latitude": 51.5074,
+                "longitude": -0.1278
+            },
+            {
+                "name": "Intuceo",
+                "address": "Bangalore, Karnataka, India",
+                "city": "Bangalore",
+                "state": "Karnataka",
+                "country": "India",
+                "postal_code": "560004",
+                "latitude": 12.9716,
+                "longitude": 77.5946
+            },
+            {
+                "name": "Intuceo",
+                "address": "Hyderabad, Telangana, India",
+                "city": "Hyderabad",
+                "state": "Telangana",
+                "country": "India",
                 "postal_code": "500081",
-                "latitude": 17.4504, 
-                "longitude": 78.3808
-            },
-            {
-                "name": "Chennai Center", 
-                "address": "Tidel Park, Rajiv Gandhi Salai", 
-                "city": "Chennai", 
-                "state": "Tamil Nadu", 
-                "country": "India", 
-                "postal_code": "600113",
-                "latitude": 12.9893, 
-                "longitude": 80.2483
+                "latitude": 17.385,
+                "longitude": 78.4867
             }
         ]
 
         locations = {}
         for loc_data in location_seeds:
-            l_res = await db.execute(select(Location).where(Location.name == loc_data["name"]))
+            l_res = await db.execute(select(Location).where(Location.city == loc_data["city"]))
             loc = l_res.scalar_one_or_none()
             if not loc:
                 loc = Location(**loc_data)
                 db.add(loc)
                 await db.flush()
+            else:
+                loc.name = loc_data["name"]
+                loc.address = loc_data["address"]
+                loc.state = loc_data["state"]
+                loc.country = loc_data["country"]
+                loc.postal_code = loc_data["postal_code"]
+                loc.latitude = loc_data["latitude"]
+                loc.longitude = loc_data["longitude"]
             locations[loc.city] = loc
 
         await db.commit()
-        print(f"✅ Loaded {len(locations)} Locations with GPS coordinates")
+        print(f"Loaded {len(locations)} Locations with GPS coordinates")
 
         # 5. Branches
         branches_data = [
-            (locations["Bangalore"].id, "Whitefield", "ITPL Main Road, Whitefield", "Flagship tech campus"),
-            (locations["Bangalore"].id, "Koramangala", "80 Feet Road, 4th Block Koramangala", "Vibrant startup accelerator hub"),
-            (locations["Hyderabad"].id, "Hitech City", "Mindspace IT Park, Building 12", "Modern enterprise workspace"),
-            (locations["Hyderabad"].id, "Gachibowli", "Financial District, Nanakramguda", "Premium financial corridor hub"),
-            (locations["Chennai"].id, "Guindy", "Olympia Tech Park, SIDCO Industrial Estate", "Central metro connected center"),
-            (locations["Chennai"].id, "OMR", "Ascendas IT Park, Taramani", "IT Expressway campus")
+            (locations["Jacksonville"].id, "Headquarters", "4110 Southpoint Blvd, Suite 124, Jacksonville, FL 32216, USA", "Global Headquarters"),
+            (locations["McLean"].id, "Washington D.C. Area Office", "1765 Greensboro Station Place, Suite 900, McLean, VA 22102, USA", "Washington D.C. Area Office"),
+            (locations["London"].id, "Europe Office", "London, United Kingdom", "Europe Regional Office"),
+            (locations["Bangalore"].id, "Development Center", "Bangalore, Karnataka, India", "India Development Center"),
+            (locations["Hyderabad"].id, "Development Center", "Hyderabad, Telangana, India", "India Development Center")
         ]
 
         branches = []

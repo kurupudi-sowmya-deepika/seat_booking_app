@@ -16,6 +16,9 @@ class UserLogin(BaseModel):
 
 class EntraLogin(BaseModel):
     token: str
+    email: Optional[str] = None
+    name: Optional[str] = None
+    oid: Optional[str] = None
 
 class UserResponse(UserBase):
     id: UUID

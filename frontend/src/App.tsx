@@ -74,7 +74,7 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              <Route path="/register" element={<Navigate to="/login" replace />} />
               
               {/* User Routes */}
               <Route path="/" element={
@@ -108,7 +108,7 @@ function App() {
                 <Route path="branches" element={<Navigate to="/admin/locations?tab=branches" replace />} />
                 <Route path="rooms" element={<AdminRooms />} />
                 <Route path="facilities" element={<AdminFacilities />} />
-                <Route path="seats" element={<AdminSeats />} />
+                <Route path="seats" element={<Navigate to="/admin/rooms" replace />} />
                 <Route path="floor-plans" element={<AdminFloorPlans />} />
                 <Route path="floor-plans/:floorId" element={<FloorPlanEditor />} />
                 <Route path="day-passes" element={<AdminDayPasses />} />

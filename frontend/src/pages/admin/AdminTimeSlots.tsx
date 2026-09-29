@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Clock, Plus, Edit2, Trash2, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Clock, Plus, Edit2, Trash2, AlertCircle, RefreshCw, Search, Filter } from 'lucide-react';
 
 interface TimeSlotItem {
   id: string;
@@ -14,6 +14,12 @@ export const AdminTimeSlots: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<TimeSlotItem | null>(null);
+
+  // Search, Filter & Pagination states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
 
   const [formData, setFormData] = useState({
     start_time: '09:00:00',
@@ -66,7 +72,6 @@ export const AdminTimeSlots: React.FC = () => {
     setSaving(true);
     setError('');
 
-    // Ensure format is HH:MM:SS
     const formattedData = {
       start_time: formData.start_time.length === 5 ? `${formData.start_time}:00` : formData.start_time,
       end_time: formData.end_time.length === 5 ? `${formData.end_time}:00` : formData.end_time,
@@ -108,89 +113,183 @@ export const AdminTimeSlots: React.FC = () => {
     return `${h}:${m} ${ampm}`;
   };
 
+  // Filter logic
+  const sortedSlots = [...slots].sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const filteredSlots = sortedSlots.filter(slot => {
+    const formatted = `${formatDisplayTime(slot.start_time)} ${formatDisplayTime(slot.end_time)}`.toLowerCase();
+    if (searchQuery && !formatted.includes(searchQuery.toLowerCase())) return false;
+    if (statusFilter !== 'ALL' && slot.status !== statusFilter) return false;
+    return true;
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredSlots.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedSlots = filteredSlots.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Context Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
-            <Clock className="text-[#007bc0]" />
-            Booking Time Slots
+          <div className="flex items-center gap-2 text-xs text-[#007bc0] font-bold uppercase tracking-wider mb-1">
+            <span>Resources & Products</span>
+            <span>•</span>
+            <span>Time Slots Schedule</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2.5">
+            <Clock className="text-[#007bc0]" size={26} />
+            Booking Time Slots Directory
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Configure hourly intervals and schedule blocks for seat bookings.
+          <p className="text-xs text-gray-500 mt-1">
+            Configure hourly intervals and operating schedule blocks for workstation and room bookings.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-3 self-start sm:self-auto">
           <button 
             onClick={fetchData} 
             className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-sm"
             title="Refresh"
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={openCreate}
-            className="flex items-center gap-2 bg-[#007bc0] hover:bg-[#005a8c] text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition shadow-[#007bc0]/20"
+            className="flex items-center gap-2 bg-[#007bc0] hover:bg-[#005a8c] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition shadow-[#007bc0]/20"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             Add Time Slot
           </button>
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
+        <div className="relative w-full md:w-80">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by time (e.g. 9:00 AM)..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            className="w-full pl-10 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+            <Filter size={14} />
+            <span>Status:</span>
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+          >
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
         </div>
       </div>
 
       {/* Grid of Slots */}
       {loading ? (
         <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">Loading time slots...</div>
-      ) : slots.length === 0 ? (
-        <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">No time slots configured.</div>
+      ) : paginatedSlots.length === 0 ? (
+        <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">No matching time slots found.</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {slots
-            .sort((a, b) => a.start_time.localeCompare(b.start_time))
-            .map((slot) => (
-              <div 
-                key={slot.id} 
-                className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm hover:shadow-md transition flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#007bc0] flex items-center justify-center font-bold">
-                    <Clock size={18} />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-gray-900 text-xs flex items-center gap-1 flex-wrap">
-                      <span className="text-gray-400 font-semibold">From</span>
-                      <span className="text-gray-900 font-bold">{formatDisplayTime(slot.start_time)}</span>
-                      <span className="text-gray-400 font-semibold">To</span>
-                      <span className="text-gray-900 font-bold">{formatDisplayTime(slot.end_time)}</span>
-                    </h4>
-                    <span className={`inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      slot.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {slot.status}
-                    </span>
-                  </div>
+          {paginatedSlots.map((slot) => (
+            <div 
+              key={slot.id} 
+              className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm hover:shadow-md transition flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#007bc0] flex items-center justify-center font-bold">
+                  <Clock size={18} />
                 </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openEdit(slot)}
-                    className="p-1.5 text-gray-400 hover:text-[#007bc0] hover:bg-blue-50 rounded-lg transition"
-                    title="Edit"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(slot.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                    title="Delete"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                <div>
+                  <h4 className="font-extrabold text-gray-900 text-xs flex items-center gap-1 flex-wrap">
+                    <span className="text-gray-400 font-semibold">From</span>
+                    <span className="text-gray-900 font-bold">{formatDisplayTime(slot.start_time)}</span>
+                    <span className="text-gray-400 font-semibold">To</span>
+                    <span className="text-gray-900 font-bold">{formatDisplayTime(slot.end_time)}</span>
+                  </h4>
+                  <span className={`inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                    slot.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {slot.status}
+                  </span>
                 </div>
               </div>
-            ))}
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => openEdit(slot)}
+                  className="p-1.5 text-gray-400 hover:text-[#007bc0] hover:bg-blue-50 rounded-lg transition"
+                  title="Edit"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button
+                  onClick={() => handleDelete(slot.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                  title="Delete"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-5 py-3.5 border border-gray-200 rounded-2xl shadow-sm">
+        <div className="text-xs font-semibold text-gray-500">
+          Showing <span className="font-bold text-gray-800">{filteredSlots.length > 0 ? startIndex + 1 : 0}</span> to{' '}
+          <span className="font-bold text-gray-800">{Math.min(startIndex + pageSize, filteredSlots.length)}</span> of{' '}
+          <span className="font-bold text-gray-800">{filteredSlots.length}</span> time slots
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Slots per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700"
+            >
+              <option value={8}>8</option>
+              <option value={16}>16</option>
+              <option value={32}>32</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-bold text-gray-700 px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Modal */}
       {modalOpen && (

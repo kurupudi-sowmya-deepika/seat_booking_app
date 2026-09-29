@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
-import { Sparkles, Plus, Edit2, Trash2, Loader2, ChevronRight, X, AlertCircle } from 'lucide-react';
+import { Sparkles, Plus, Edit2, Trash2, Loader2, ChevronRight, X, AlertCircle, Search, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const AdminFacilities: React.FC = () => {
@@ -9,6 +9,12 @@ export const AdminFacilities: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
+  // Search, Filter & Pagination states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -77,55 +83,114 @@ export const AdminFacilities: React.FC = () => {
     }
   };
 
+  // Filter facilities
+  const filteredFacilities = facilities.filter(fac => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchName = fac.name.toLowerCase().includes(q);
+      const matchDesc = fac.description && fac.description.toLowerCase().includes(q);
+      if (!matchName && !matchDesc) return false;
+    }
+    if (categoryFilter !== 'ALL' && fac.category !== categoryFilter) return false;
+    return true;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredFacilities.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedFacilities = filteredFacilities.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-[#005691] text-white flex items-center justify-center rounded-sm">
-            <ChevronRight size={16} />
+      {/* Context Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-[#007bc0] font-bold uppercase tracking-wider mb-1">
+            <span>Resources & Products</span>
+            <span>•</span>
+            <span>Facility Amenities</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Facilities & Amenities Master</h1>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2.5">
+            <Sparkles className="text-[#007bc0]" size={26} />
+            Facilities & Amenities Master
+          </h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Configure AV tech, ergonomics, pantry setups, and room equipment specs available across campuses.
+          </p>
         </div>
 
         <button
           onClick={openCreate}
-          className="px-4 py-2 bg-[#007bc0] hover:bg-[#005691] text-white text-xs font-bold rounded-xl shadow transition-all flex items-center gap-1.5 self-start sm:self-auto"
+          className="px-4 py-2.5 bg-[#007bc0] hover:bg-[#005691] text-white text-xs font-bold rounded-xl shadow transition-all flex items-center gap-1.5 self-start sm:self-auto"
         >
           <Plus size={16} /> Add Facility
         </button>
       </div>
 
+      {/* Search & Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
+        <div className="relative w-full md:w-80">
+          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search facility name or spec..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            className="w-full pl-10 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+          />
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+            <Filter size={14} />
+            <span>Category:</span>
+          </div>
+
+          <select
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+          >
+            <option value="ALL">All Categories</option>
+            {FACILITY_CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Table */}
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
         {loading ? (
           <div className="h-64 flex items-center justify-center">
             <Loader2 className="animate-spin text-[#007bc0]" size={36} />
           </div>
-        ) : facilities.length === 0 ? (
+        ) : paginatedFacilities.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Sparkles size={40} className="text-gray-300 mx-auto mb-3" />
-            <p className="text-sm font-medium">No facilities created yet.</p>
+            <p className="text-sm font-medium">No facilities found matching your criteria.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                  <th className="py-3 px-4">Facility Name</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Description</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4">Facility Name</th>
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">Description</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-xs">
-                {facilities.map((fac) => (
+                {paginatedFacilities.map((fac) => (
                   <tr key={fac.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-gray-800">{fac.name}</td>
                     <td className="py-3.5 px-4 text-gray-500">
                       {fac.category ? (
-                        <span className="px-2 py-0.5 bg-blue-50 text-[#007bc0] rounded-full text-[10px] font-bold">{fac.category}</span>
+                        <span className="px-2.5 py-0.5 bg-blue-50 text-[#007bc0] rounded-full text-[10px] font-extrabold">{fac.category}</span>
                       ) : '—'}
                     </td>
-                    <td className="py-3.5 px-4 text-gray-500">{fac.description}</td>
+                    <td className="py-3.5 px-4 text-gray-500">{fac.description || 'Standard facility amenity.'}</td>
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -150,6 +215,51 @@ export const AdminFacilities: React.FC = () => {
         )}
       </div>
 
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-5 py-3.5 border border-gray-200 rounded-2xl shadow-sm">
+        <div className="text-xs font-semibold text-gray-500">
+          Showing <span className="font-bold text-gray-800">{filteredFacilities.length > 0 ? startIndex + 1 : 0}</span> to{' '}
+          <span className="font-bold text-gray-800">{Math.min(startIndex + pageSize, filteredFacilities.length)}</span> of{' '}
+          <span className="font-bold text-gray-800">{filteredFacilities.length}</span> facilities
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-bold text-gray-700 px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal */}
       <AnimatePresence>
         {modalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

@@ -1,28 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  /* Bosch Light design tokens - see /design.md */
-  --bg-color: #ffffff; /* neutral */
-  --surface-color: #ffffff; /* surface */
+  /* intuceo Light design tokens - see /design.md */
+  --bg-color: #ffffff;
+  /* neutral */
+  --surface-color: #ffffff;
+  /* surface */
   --surface-color-light: #f8f9fa;
 
-  --primary-color: #007bc0; /* primary - Bosch blue: links, focus, hover on primary actions */
+  --primary-color: #007bc0;
+  /* primary - intuceo blue: links, focus, hover on primary actions */
   --primary-hover: #005f99;
   --primary-glow: rgba(0, 123, 192, 0.3);
 
-  --secondary-color: #000000; /* secondary - black: headings, body text, primary-button fill */
+  --secondary-color: #000000;
+  /* secondary - black: headings, body text, primary-button fill */
 
-  --tertiary-color: #e5e7eb; /* tertiary - borders, dividers, chips */
+  --tertiary-color: #e5e7eb;
+  /* tertiary - borders, dividers, chips */
 
-  --text-primary: #000000; /* on-surface */
-  --text-secondary: #4b5563; /* not in the base palette - a practical mid-gray for secondary copy */
-  --text-muted: #6b7280; /* muted, see design.md */
+  --text-primary: #000000;
+  /* on-surface */
+  --text-secondary: #4b5563;
+  /* not in the base palette - a practical mid-gray for secondary copy */
+  --text-muted: #6b7280;
+  /* muted, see design.md */
 
-  --danger-color: #d00000; /* error - validation and destructive states, used sparingly */
+  --danger-color: #d00000;
+  /* error - validation and destructive states, used sparingly */
   --warning-color: #f59e0b;
   --success-color: #10b981;
 
-  --border-color: #e5e7eb; /* tertiary */
+  --border-color: #e5e7eb;
+  /* tertiary */
 
   /* Seat Colors */
   --seat-available: #10b981;
@@ -30,16 +40,21 @@
   --seat-selected: #007bc0;
   --seat-disabled: #475569;
 
-  /* Typography - Boschsans, with realistic fallbacks (proprietary font, not webfont-hosted) */
-  --font-family: 'Boschsans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  /* Typography - intuceosans, with realistic fallbacks (proprietary font, not webfont-hosted) */
+  --font-family: 'intuceosans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 
   /* Shape scale - none/sm/md/lg/xl/full, see design.md */
   --radius-none: 0px;
-  --radius-sm: 4px;  /* buttons, inputs */
-  --radius-md: 8px;  /* cards */
-  --radius-lg: 12px; /* large panels, modals */
-  --radius-xl: 16px; /* hero/feature surfaces */
-  --radius-full: 9999px; /* chips, pills */
+  --radius-sm: 4px;
+  /* buttons, inputs */
+  --radius-md: 8px;
+  /* cards */
+  --radius-lg: 12px;
+  /* large panels, modals */
+  --radius-xl: 16px;
+  /* hero/feature surfaces */
+  --radius-full: 9999px;
+  /* chips, pills */
 
   /* Legacy aliases kept for existing components */
   --border-radius: var(--radius-md);
@@ -66,7 +81,8 @@
    font sizes AND spacing app-wide together, proportionally, without having to touch
    every component. See /design.md Typography. */
 html {
-  font-size: 17.5px; /* was the 16px browser default */
+  font-size: 17.5px;
+  /* was the 16px browser default */
 }
 
 body {
@@ -210,8 +226,15 @@ body {
 
 /* Animations */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {
@@ -367,25 +390,44 @@ body {
   letter-spacing: 0.05em;
 }
 
-.badge-success { background-color: rgba(16, 185, 129, 0.1); color: var(--success-color); border: 1px solid rgba(16, 185, 129, 0.2); }
-.badge-warning { background-color: rgba(245, 158, 11, 0.1); color: var(--warning-color); border: 1px solid rgba(245, 158, 11, 0.2); }
-.badge-danger { background-color: rgba(239, 68, 68, 0.1); color: var(--danger-color); border: 1px solid rgba(239, 68, 68, 0.2); }
-.badge-primary { background-color: rgba(0, 123, 192, 0.1); color: var(--primary-color); border: 1px solid rgba(0, 123, 192, 0.2); }
+.badge-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
 
-/* Bosch Supergraphic */
-.bosch-supergraphic {
+.badge-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: var(--warning-color);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.badge-danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger-color);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-primary {
+  background-color: rgba(0, 123, 192, 0.1);
+  color: var(--primary-color);
+  border: 1px solid rgba(0, 123, 192, 0.2);
+}
+
+/* intuceo Supergraphic */
+.intuceo-supergraphic {
   height: 8px;
   width: 100%;
   background: linear-gradient(to right, #00CCFF 0%, #00CCFF 16.66%, #005691 16.66%, #005691 33.32%, #50237F 33.32%, #50237F 49.98%, #E20015 49.98%, #E20015 66.64%, #E20015 66.64%, #E20015 83.3%, #008ECF 83.3%, #008ECF 100%);
 }
 
-.bosch-header {
+.intuceo-header {
   background-color: white;
   border-bottom: 1px solid #e0e2e5;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.bosch-nav-link {
+.intuceo-nav-link {
   color: var(--text-primary);
   font-weight: 500;
   padding: 0.5rem 1rem;
@@ -393,7 +435,8 @@ body {
   border-bottom: 3px solid transparent;
 }
 
-.bosch-nav-link:hover, .bosch-nav-link.active {
+.intuceo-nav-link:hover,
+.intuceo-nav-link.active {
   color: var(--primary-color);
   border-bottom: 3px solid var(--primary-color);
 }

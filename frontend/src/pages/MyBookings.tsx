@@ -17,6 +17,10 @@ export const MyBookings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ALL' | 'UPCOMING' | 'COMPLETED' | 'CANCELLED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
+  
   // Modals
   const [selectedBookingForDetails, setSelectedBookingForDetails] = useState<any | null>(null);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null);
@@ -203,6 +207,10 @@ export const MyBookings: React.FC = () => {
     return <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-extrabold text-[11px] rounded-full uppercase">Confirmed</span>;
   };
 
+  const totalPages = Math.ceil(filteredBookings.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + pageSize);
+
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Header */}
@@ -338,12 +346,12 @@ export const MyBookings: React.FC = () => {
                 </div>
               ) },
             ]}
-            rows={filteredBookings}
+            rows={paginatedBookings}
             rowKey={(b) => b.id}
           />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:hidden">
-          {filteredBookings.map((b) => {
+          {paginatedBookings.map((b) => {
             const isConfirmedUpcoming = b.status === 'CONFIRMED' && new Date(b.booking_date) >= today;
             const isHourlyRoom = b.booking_type === 'MEETING_ROOM' || b.booking_type === 'CONFERENCE_ROOM';
 
@@ -441,19 +449,56 @@ export const MyBookings: React.FC = () => {
                         </button>
                       )}
 
-                      <button
-                        onClick={() => setCancellingBookingId(b.id)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-xl transition"
-                        title="Cancel Booking & Refund"
-                      >
-                        <Trash2 size={16} />
-                      </button>
                     </div>
                   )}
                 </div>
               </div>
             );
           })}
+        </div>
+
+        {/* Pagination Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-5 py-3.5 border border-gray-200 rounded-2xl shadow-sm mt-4">
+          <div className="text-xs font-semibold text-gray-500">
+            Showing <span className="font-bold text-gray-900">{filteredBookings.length > 0 ? startIndex + 1 : 0}</span> to{' '}
+            <span className="font-bold text-gray-900">{Math.min(startIndex + pageSize, filteredBookings.length)}</span> of{' '}
+            <span className="font-bold text-gray-900">{filteredBookings.length}</span> bookings
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700 focus:outline-none"
+              >
+                <option value={6}>6</option>
+                <option value={12}>12</option>
+                <option value={24}>24</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+              >
+                Previous
+              </button>
+              <span className="text-xs font-bold text-gray-700 px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
         </>
       )}

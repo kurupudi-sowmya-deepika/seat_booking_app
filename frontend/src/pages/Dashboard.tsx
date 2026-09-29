@@ -1,44 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
-  Users, Building2, MapPin, Calendar, Clock, ChevronRight,
-  Wallet as WalletIcon, ArrowUpRight, PlusCircle, CheckCircle2,
-  XCircle, Sparkles, Compass, ShieldCheck, Tag, Video,
-  Printer, Navigation, ArrowRight, Layers, Armchair,
-  UserCheck, Download, Plus, Bot, Zap, Coffee, Wifi, Monitor
+  Users, Building2, Calendar, ChevronRight,
+  Wallet as WalletIcon, Sparkles, Tag, Video,
+  ArrowRight, Armchair, UserCheck, Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [wallet, setWallet] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
   const [visitors, setVisitors] = useState<any[]>([]);
+  const [dayPasses, setDayPasses] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<any>(null);
-
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [wRes, bRes, brRes, locRes, vRes] = await Promise.all([
+        const [wRes, bRes, brRes, locRes, vRes, dpRes, rmRes] = await Promise.all([
           api.get('/wallet/').catch(() => ({ data: { balance: 0.0 } })),
           api.get('/bookings/my').catch(() => ({ data: [] })),
           api.get('/branches/').catch(() => ({ data: [] })),
           api.get('/locations/').catch(() => ({ data: [] })),
-          api.get('/visitors/').catch(() => ({ data: [] }))
+          api.get('/visitors/').catch(() => ({ data: [] })),
+          api.get('/day-passes/').catch(() => ({ data: [] })),
+          api.get('/rooms/').catch(() => ({ data: [] }))
         ]);
         setWallet(wRes.data);
         setBookings(bRes.data || []);
         setBranches(brRes.data || []);
         setLocations(locRes.data || []);
         setVisitors(vRes.data || []);
+        setDayPasses(dpRes.data || []);
+        setRooms(rmRes.data || []);
       } catch (err) {
         console.error('Failed to load dashboard data', err);
       } finally {
@@ -48,15 +48,18 @@ export const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  const totalBookings = bookings.length;
   const upcomingBookings = bookings.filter(b => b.status === 'CONFIRMED' && new Date(b.booking_date) >= new Date(new Date().setHours(0, 0, 0, 0)));
   const completedBookings = bookings.filter(b => b.status === 'CONFIRMED' && new Date(b.booking_date) < new Date(new Date().setHours(0, 0, 0, 0)));
   const activeBooking = upcomingBookings[0] || null;
 
-  const handleLocationDetected = (loc: any) => {
-    setSelectedLocation(loc);
-  };
-
+  // Dynamic pricing calculations
+  const meetingRooms = rooms.filter(r => r.room_type === 'MEETING_ROOM');
+  const confRooms = rooms.filter(r => r.room_type === 'CONFERENCE_ROOM');
+  
+  const minDayPassPrice = dayPasses.length > 0 ? Math.min(...dayPasses.map(d => Number(d.price) || 350)) : 350;
+  const minMeetingRoomPrice = meetingRooms.length > 0 ? Math.min(...meetingRooms.map(r => Number(r.price_per_hour) || 400)) : 400;
+  const minConfRoomPrice = confRooms.length > 0 ? Math.min(...confRooms.map(r => Number(r.price_per_hour) || 1000)) : 1000;
+  const uniqueCitiesCount = new Set(locations.map(l => l.city || l.name)).size;
 
   const container = {
     hidden: { opacity: 0 },
@@ -144,7 +147,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider">Regional Hubs</span>
-              <h3 className="text-2xl font-black text-gray-900 mt-1">{branches.length || 3}</h3>
+              <h3 className="text-2xl font-black text-gray-900 mt-1">{branches.length}</h3>
             </div>
             <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
               <Building2 size={20} />
@@ -152,7 +155,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
             <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
-              {locations.length || 3} Cities
+              {uniqueCitiesCount} {uniqueCitiesCount === 1 ? 'City' : 'Cities'}
             </span>
             <Link to="/booking" className="text-xs font-black text-[#007bc0] hover:underline flex items-center gap-0.5">
               Explore →
@@ -179,9 +182,6 @@ export const Dashboard: React.FC = () => {
         </motion.div>
 
       </motion.div>
-
-      {/* My Bookings Preview */}
-
 
       {/* Main 2-Column Content: Upcoming Session / Booking Options + Hubs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -278,7 +278,7 @@ export const Dashboard: React.FC = () => {
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-[#007bc0]">
-                  <span>From ₹150/slot</span>
+                  <span>From ₹90/slot</span>
                   <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
@@ -298,7 +298,7 @@ export const Dashboard: React.FC = () => {
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-emerald-600">
-                  <span>From ₹350/day</span>
+                  <span>From ₹{minDayPassPrice}/day</span>
                   <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
@@ -318,7 +318,7 @@ export const Dashboard: React.FC = () => {
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-purple-600">
-                  <span>From ₹400/hr</span>
+                  <span>From ₹{minMeetingRoomPrice}/hr</span>
                   <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
@@ -338,7 +338,7 @@ export const Dashboard: React.FC = () => {
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-orange-600">
-                  <span>From ₹1,000/hr</span>
+                  <span>From ₹{minConfRoomPrice.toLocaleString()}/hr</span>
                   <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>

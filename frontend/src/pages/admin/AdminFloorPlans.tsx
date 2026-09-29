@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import {
   Building2, Plus, Edit2, Trash2, Loader2, ChevronRight, X, AlertCircle,
-  LayoutGrid, Copy, CheckCircle2, XCircle, Armchair, DoorOpen, Wrench, Clock
+  LayoutGrid, Copy, CheckCircle2, XCircle, Armchair, DoorOpen, Wrench, Clock, Sparkles,
+  Bot, Maximize, Minimize, MessageSquare
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 
@@ -30,6 +31,7 @@ export const AdminFloorPlans: React.FC = () => {
   const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const [buildingModalOpen, setBuildingModalOpen] = useState(false);
   const [buildingForm, setBuildingForm] = useState({ location_id: '', name: '', address: '' });
@@ -156,24 +158,148 @@ export const AdminFloorPlans: React.FC = () => {
     }
   };
 
+  const handleBootstrapFloor = async (branchId: string) => {
+    setLoading(true);
+    try {
+      const branchObj = branches.find(b => b.id === branchId);
+      const branchName = branchObj ? branchObj.name : 'Main';
+      const fRes = await api.post('/floor-plans/floors', {
+        branch_id: branchId,
+        name: `${branchName} - Main Floor`,
+        floor_number: 1,
+        canvas_width: 1200,
+        canvas_height: 800,
+        status: 'ACTIVE'
+      });
+      const newFloor = fRes.data;
+
+      const [rRes, sRes] = await Promise.all([
+        api.get('/rooms/'),
+        api.get('/seats/').catch(() => ({ data: [] }))
+      ]);
+      const branchRooms = (rRes.data || []).filter((r: any) => r.branch_id === branchId);
+      const branchSeats = sRes.data || [];
+
+      let currentX = 50;
+      let currentY = 50;
+      const initialItems: any[] = [];
+
+      branchRooms.forEach((rm: any) => {
+        const isMeeting = rm.room_type === 'MEETING_ROOM';
+        const isConf = rm.room_type === 'CONFERENCE_ROOM';
+        const shape = isConf ? 'OVAL' : isMeeting ? 'CIRCLE' : 'RECTANGLE';
+        const width = isConf ? 260 : isMeeting ? 180 : 360;
+        const height = isConf ? 180 : isMeeting ? 180 : 240;
+
+        const roomItemId = `init-room-${rm.id}`;
+        initialItems.push({
+          id: roomItemId,
+          item_type: 'ROOM',
+          label: rm.name,
+          x: currentX,
+          y: currentY,
+          width,
+          height,
+          rotation: 0,
+          shape,
+          z_index: 1,
+          room_id: rm.id,
+          properties: {
+            name: rm.name,
+            room_type: rm.room_type || 'WORKSPACE',
+            capacity: rm.capacity || 10,
+            price_per_hour: rm.price_per_hour || 0
+          }
+        });
+
+        const roomSeats = branchSeats.filter((s: any) => s.room_id === rm.id);
+        let seatX = currentX + 20;
+        let seatY = currentY + 40;
+        roomSeats.forEach((st: any) => {
+          initialItems.push({
+            id: `init-seat-${st.id}`,
+            item_type: 'SEAT',
+            parent_item_id: roomItemId,
+            label: st.seat_number,
+            x: seatX,
+            y: seatY,
+            width: 32,
+            height: 32,
+            rotation: 0,
+            shape: 'RECTANGLE',
+            z_index: 2,
+            seat_id: st.id,
+            properties: {
+              seat_number: st.seat_number,
+              seat_type: st.seat_type || 'STANDARD',
+              price: st.price || 150,
+              status: st.status || 'ACTIVE'
+            }
+          });
+          seatX += 40;
+          if (seatX + 40 > currentX + width - 10) {
+            seatX = currentX + 20;
+            seatY += 40;
+          }
+        });
+
+        currentX += width + 40;
+        if (currentX + 300 > 1150) {
+          currentX = 50;
+          currentY += height + 50;
+        }
+      });
+
+      if (initialItems.length > 0) {
+        await api.post(`/floor-plans/floors/${newFloor.id}/save`, { items: initialItems });
+      }
+
+      await fetchData();
+      navigate(`/admin/floor-plans/${newFloor.id}`);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to auto-bootstrap floor layout');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const floorsByBranch = branches.map(b => ({
     branch: b,
     floors: floors.filter(f => f.branch_id === b.id).sort((a, b2) => a.floor_number - b2.floor_number),
   }));
 
+  const openAiAssistant = (prompt?: string) => {
+    window.dispatchEvent(new CustomEvent('open-ai-chat', { detail: { prompt } }));
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className={isFullScreen ? 'fixed inset-0 z-50 bg-[#f8fafc] p-6 overflow-auto shadow-2xl space-y-6' : 'space-y-6'}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-[#005691] text-white flex items-center justify-center rounded-sm">
             <ChevronRight size={16} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Floor Plan Management</h1>
+          <div>
+            <h1 className="text-xl font-bold text-gray-800">Floor Plan Management</h1>
+            <p className="text-xs text-gray-500">Corporate campus floor governance, spatial mapping & AI booking concierge.</p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => openAiAssistant('Find an available meeting room in the corporate building')}
+            className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <Bot size={16} /> AI Assistant
+          </button>
+          <button
+            onClick={() => setIsFullScreen(!isFullScreen)}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border border-gray-300"
+          >
+            {isFullScreen ? <><Minimize size={16} /> Exit Full Screen</> : <><Maximize size={16} /> Open Full Screen</>}
+          </button>
           <button
             onClick={openAddBuilding}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 border border-gray-300"
           >
             <Building2 size={16} /> Add Building
           </button>
@@ -214,7 +340,23 @@ export const AdminFloorPlans: React.FC = () => {
               </div>
 
               {branchFloors.length === 0 ? (
-                <div className="p-6 text-center text-xs text-gray-400">No floors configured for this building yet.</div>
+                <div className="p-8 text-center bg-gray-50/50 space-y-3">
+                  <p className="text-xs text-gray-500 font-medium">No floor plan layouts configured for {branch.name} yet.</p>
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => handleBootstrapFloor(branch.id)}
+                      className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-[#007bc0] border border-blue-200 text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
+                    >
+                      <Sparkles size={14} /> Auto-Generate Floor from DB Rooms & Seats
+                    </button>
+                    <button
+                      onClick={() => openAddFloor(branch.id)}
+                      className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+                    >
+                      <Plus size={14} /> Blank Floor
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">

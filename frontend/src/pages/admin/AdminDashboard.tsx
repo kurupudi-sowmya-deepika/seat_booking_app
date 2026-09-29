@@ -31,7 +31,7 @@ export const AdminDashboard: React.FC = () => {
     { label: 'Total Locations', value: stats?.total_locations ?? 0, icon: <MapPin size={20} />, color: 'bg-emerald-50 text-emerald-600', link: '/admin/locations' },
     { label: 'Active Branches', value: stats?.total_branches ?? 0, icon: <Building2 size={20} />, color: 'bg-indigo-50 text-indigo-600', link: '/admin/branches' },
     { label: 'Rooms & Zones', value: stats?.total_rooms ?? 0, icon: <DoorOpen size={20} />, color: 'bg-purple-50 text-purple-600', link: '/admin/rooms' },
-    { label: 'Total Desks', value: stats?.total_seats ?? 0, icon: <Armchair size={20} />, color: 'bg-amber-50 text-amber-600', link: '/admin/seats' },
+    { label: 'Total Desks', value: stats?.total_seats ?? 0, icon: <Armchair size={20} />, color: 'bg-amber-50 text-amber-600', link: '/admin/rooms' },
     { label: 'Day Pass Types', value: stats?.total_day_passes ?? 0, icon: <Tag size={20} />, color: 'bg-teal-50 text-teal-600', link: '/admin/day-passes' },
     { label: 'Total Bookings', value: stats?.total_bookings ?? 0, icon: <Calendar size={20} />, color: 'bg-sky-50 text-sky-600', link: '/admin/reports' },
     { label: 'Seat Occupancy', value: `${stats?.occupancy_rate ?? 0}%`, icon: <Activity size={20} />, color: 'bg-rose-50 text-rose-600', link: '/admin/reports' },

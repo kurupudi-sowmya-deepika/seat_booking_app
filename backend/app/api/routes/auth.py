@@ -58,44 +58,81 @@ async def login(
         "token_type": "bearer",
     }
 
+from sqlalchemy import select, func, or_
+
 @router.post("/login/entra", response_model=Token)
 async def login_entra(
     entra_in: EntraLogin,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        import jwt as pyjwt
-        claims = pyjwt.decode(entra_in.token, options={"verify_signature": False})
-        email = claims.get("preferred_username") or claims.get("email")
-        name = claims.get("name")
-        oid = claims.get("oid")
-        if not email or not oid:
-            raise HTTPException(status_code=400, detail="Invalid Entra token claims")
-        result = await db.execute(select(User).where(User.email == email))
+        claims = {}
+        try:
+            import jwt as pyjwt
+            claims = pyjwt.decode(entra_in.token, options={"verify_signature": False})
+        except Exception:
+            pass
+
+        email = entra_in.email or claims.get("preferred_username") or claims.get("email") or claims.get("upn") or claims.get("unique_name")
+        name = entra_in.name or claims.get("name") or (f"{claims.get('given_name', '')} {claims.get('family_name', '')}".strip() if (claims.get('given_name') or claims.get('family_name')) else None)
+        oid = entra_in.oid or claims.get("oid") or claims.get("sub")
+
+        if not email and not oid:
+            raise HTTPException(status_code=400, detail="Unable to extract user identity from Microsoft token or Graph API")
+
+        # Standardize email
+        email_clean = email.strip().lower() if email else f"{oid}@azure.intuceo.com"
+        display_name = name.strip() if name and name.strip() else email_clean.split('@')[0]
+
+        # Check if user exists in the database
+        query_conditions = []
+        if oid:
+            query_conditions.append(User.entra_object_id == oid)
+        if email_clean:
+            query_conditions.append(func.lower(User.email) == email_clean)
+
+        result = await db.execute(select(User).where(or_(*query_conditions)))
         user = result.scalar_one_or_none()
+
         if user:
+            # User exists: update details if necessary
+            updated = False
+            if oid and user.entra_object_id != oid:
+                user.entra_object_id = oid
+                updated = True
+            if display_name and user.name in ["Entra User", "User", ""] and display_name not in ["Entra User", "User", ""]:
+                user.name = display_name
+                updated = True
             if user.auth_provider == AuthProvider.LOCAL:
                 user.auth_provider = AuthProvider.BOTH
-                user.entra_object_id = oid
+                updated = True
+            if updated:
                 await db.commit()
+                await db.refresh(user)
         else:
+            # User does NOT exist: automatically add user to users table
             user = User(
-                email=email,
-                name=name or "Entra User",
+                email=email_clean,
+                name=display_name,
                 entra_object_id=oid,
                 auth_provider=AuthProvider.ENTRA,
             )
             db.add(user)
-            await db.flush()
+            await db.flush()  # assign user.id
+
+            # Create default corporate wallet for the new user
             wallet = Wallet(user_id=user.id, balance=0.0)
             db.add(wallet)
             await db.commit()
             await db.refresh(user)
+
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         return {
             "access_token": create_access_token(user.id, expires_delta=access_token_expires),
             "token_type": "bearer",
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid authentication credentials: {str(e)}")
 

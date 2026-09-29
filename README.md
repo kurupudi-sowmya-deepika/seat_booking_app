@@ -1,108 +1,173 @@
-# Seat Booking App - Workspace Booking Application
+# 🏢 Seat Booking App - Enterprise Workspace & Resource Management Platform
 
-A complete, production-ready workspace and seat booking application. 
-Built with **React (TypeScript)**, **FastAPI**, and **PostgreSQL**.
-
-## Features
-- **AI Chatbot Booking:** Natural language conversational interface, run as a LangChain/LangGraph tool-calling agent over OpenRouter (default model `openai/gpt-4o-mini`), to find and book seats, meeting/conference rooms, and day passes seamlessly.
-- **Prepaid Wallet System:** Add credits via Stripe and instantly book seats without leaving the app.
-- **Dual Authentication:** Local Email/Password + Microsoft Entra ID (SSO)
-- **Interactive Seat Map:** Real-time visual selection of seats, with time slots picked as checkboxes sourced from the admin-configured Time Slots list (not a generated grid) - selecting several books that seat across each checked slot.
-- **Multi-Day Day Passes:** Book a Day Pass for a number of consecutive days in one flow; capacity is checked across every day before anything is created.
-- **Booking Engine:** Concurrency-safe double-booking prevention using PostgreSQL partial indexes
-- **Payment Processing:** Integrated with Stripe Checkout & Webhooks
-- **Admin Dashboard:** Full CRUD management for Locations, Branches, Rooms, Seats, and Time Slots, plus a System Settings page (org policies, auth toggles, AI concierge) that persists to the database
-- **Premium UI:** Glassmorphism, animations, and a Tailwind v4 + CSS-custom-property design system ("Bosch Light" - see `design.md`)
-
-## Tech Stack
-- **Frontend:** React 19, Vite, TypeScript, React Router v6, MSAL React, Axios, Tailwind v4, Lucide React
-- **Backend:** Python 3.10+, FastAPI, SQLAlchemy 2.0 (Async), asyncpg, Alembic, PyJWT
-- **AI:** LangChain + LangGraph (`langchain.agents.create_agent`) driving `langchain-openai`'s `ChatOpenAI` pointed at OpenRouter, default model `openai/gpt-4o-mini`, via tool/function calling
-- **Database:** PostgreSQL
-- **Payments:** Stripe
+A modern, production-grade enterprise workspace booking platform built with **React 19 (TypeScript)**, **FastAPI**, **PostgreSQL**, **Microsoft Entra ID (Graph API)**, **Stripe**, and **LangChain/LangGraph AI**.
 
 ---
 
-## 🚀 Setup Instructions
+## 🌟 Key Functionalities & Features
 
-### 1. Database Setup
-1. Install and start PostgreSQL.
-2. Create a new database named `seat_booking`:
-   ```sql
-   CREATE DATABASE seat_booking;
-   ```
+### 1. 🔐 Enterprise Authentication & Microsoft Entra ID (SSO)
+- **Single Sign-On (SSO):** Frictionless enterprise login powered by `@azure/msal-react` and Microsoft Entra ID.
+- **Automated Provisioning:** Automatic user check and account creation in PostgreSQL upon first Microsoft SSO authentication.
+- **Microsoft Graph Profile Synchronization:** Fetches and renders the authenticated user's real corporate profile photo (`https://graph.microsoft.com/v1.0/me/photo/$value`) in the top navigation and profile views, falling back to name initials.
+- **Automated Wallet Initialization:** Each new user receives a dedicated digital corporate wallet upon account creation.
+- **Role-Based Access Control (RBAC):** Strict segregation between `USER` (employees/guests) and `ADMIN` (workplace managers) roles.
 
-### 2. Environment Configuration
-1. The project uses a unified configuration approach. Copy `.env.example` (or create a new `.env` file) in the **root** of the repository:
-   ```bash
-   cp .env.example .env
-   ```
-2. Update the `DATABASE_URL` in `.env` to point to your local PostgreSQL instance (e.g., `postgresql+asyncpg://postgres:password@localhost:5432/seat_booking`).
-3. Set your `STRIPE_SECRET_KEY`, `OPENROUTER_API_KEY` (get one at [openrouter.ai/keys](https://openrouter.ai/keys); optionally override `OPENROUTER_MODEL`, default `openai/gpt-4o-mini`), `VITE_ENTRA_CLIENT_ID`, and `VITE_STRIPE_PUBLISHABLE_KEY` in the root `.env` file. Both frontend and backend are configured to read from this central file.
+### 2. 🪑 Interactive Desk & Workspace Booking
+- **Visual Spatial Seat Maps:** Interactive 2D floor plans and grid representations showing real-time desk availability.
+- **Published Floor Plan Integration:** Seamlessly switches to employee-facing published floor plans created via the interactive floor plan builder.
+- **Multi-Slot Selection:** Book single or multiple contiguous/non-contiguous time slots (sourced dynamically from the active administrative Time Slots).
+- **Double-Booking Prevention:** Concurrency-safe reservation engine backed by PostgreSQL partial indexes on `(seat_id, booking_date, time_slot_id)` where `status IN ('PENDING', 'CONFIRMED')`.
+- **Automatic Price Calculation & Wallet Settlement:** Instant debit of user wallet balance with itemized breakdown.
 
-### 3. Backend Setup
-1. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Activate the virtual environment:
-   ```bash
-   # Windows
-   .\.venv\Scripts\activate
-   # macOS/Linux
-   source .venv/bin/activate
-   ```
-3. Apply database migrations:
-   ```bash
-   alembic upgrade head
-   ```
-4. Seed the database with sample locations, rooms, and seats:
-   ```bash
-   python scripts/seed.py
-   ```
-5. Start the FastAPI development server:
-   ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
+### 3. 🎥 Smart Meeting Rooms & Conference Halls
+- **Granular Hourly & Custom Duration Scheduling:** Book 15, 30, 45, 60, 90, 120, 180, or 240-minute slots.
+- **Visual Availability Timeline:** Live room timeline visualization across working hours (08:00 to 20:00).
+- **Amenity Badges & Spatial Filters:** Filter rooms by capacity, projector/smart displays, video conferencing (Teams/Zoom), whiteboard, and air conditioning.
+- **Expandable Amenity Details:** Clean badge presentation with structured modal exploration for full room specs.
 
-### 4. Frontend Setup
-1. Navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install --legacy-peer-deps
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
+### 4. 🎟️ Multi-Day Flex Day Passes & Group Bookings
+- **Consecutive Multi-Day Access:** Book full-day campus access across single or multiple consecutive days in a single flow.
+- **Multi-Day Capacity Validation:** Guarantees pass availability across every day in the selected range before confirmation.
+- **Group & Additional Attendee Allocation:** Search fellow colleagues via auto-complete to assign shared passes with digital pass issuance.
+- **Comprehensive Amenities Included:** High-speed Wi-Fi, ergonomic lounges, cafeteria access, and power backups.
 
-### 4. Stripe Webhook Testing (Optional)
-To test the full payment cycle locally, use the Stripe CLI:
-```bash
-stripe listen --forward-to localhost:8000/api/payments/webhook
+### 5. 👥 Visitor & Guest Management
+- **Pre-Registration:** Register external clients, partners, and candidates before their campus visit.
+- **Digital Gate Passes & QR Badges:** Generate instant QR-coded visitor passes with host, campus branch, purpose, and arrival time.
+- **Printable Reception Badges:** One-click print format for on-site security check-in.
+- **Front-Desk Lifecycle Tracking:** Live tracking of check-in (`CHECKED_IN`), pending arrival (`PENDING`), and check-out (`CHECKED_OUT`) statuses.
+
+### 6. 💳 Corporate Digital Wallet & Stripe Payments
+- **Real-Time Balance Display:** Immediate updates across all views and navigation headers.
+- **Stripe Checkout Integration:** Instant wallet top-up using Stripe hosted checkout sessions (`/wallet/checkout`).
+- **Webhook Verification:** Cryptographically signed Stripe webhook listener (`/payments/webhook`) for zero-touch wallet balance credits.
+- **Transaction History:** Comprehensive ledger tracking all top-ups, booking charges, and refunds with timestamps and reference IDs.
+
+### 7. 🤖 AI Conversational Booking Assistant (LangChain & LangGraph)
+- **Natural Language Workspace Concierge:** Conversational chatbot widget accessible anywhere in the app.
+- **Tool-Calling Architecture:** Built with `langchain.agents.create_agent` and `ChatOpenAI` communicating with OpenRouter (default: `openai/gpt-4o-mini`).
+- **Safe Execution Pattern:** AI searches availability and returns interactive confirmation cards; transactions are executed through validated API endpoints upon user confirmation.
+
+### 8. 🛠️ Administrative Command Center & Resource Master
+- **Executive Analytics Dashboard:** Confirmed revenue, wallet credit liability, real-time occupancy rates, 7-day reservation trajectory charts, and campus distribution.
+- **Location & Branch Hierarchy:** Multi-hub management across international campuses (**Jacksonville, McLean, London, Bangalore, Hyderabad**) with geo-coordinates and time zones.
+- **Interactive Floor Plan Designer & AI Room Generator:**
+  - Drag-and-drop spatial canvas for rooms, walls, doors, desks, and zones.
+  - One-click **Auto-Generate Floor** / **AI Room Generator** powered by `/floor-plans/floors/{floor_id}/generate-rooms`.
+  - Draft vs. Published versioning (employees only see published layouts).
+- **Facilities & Equipment Master:** Manage AV equipment, ergonomic furniture, and room amenities with categorized specs.
+- **Time Slot Engine:** Configurable slot templates with custom start/end times and peak pricing rules.
+- **Enterprise System Settings:** Single-row database settings for corporate booking policies, max active bookings, lead times, and SSO toggles.
+
+---
+
+## 🏗️ Technical Architecture & Tech Stack
+
 ```
-Update your `backend/.env` with the webhook secret output by the command.
+seat_booking_app/
+├── backend/
+│   ├── app/
+│   │   ├── api/routes/          # FastAPI REST endpoints (auth, bookings, rooms, floor plans, etc.)
+│   │   ├── chatbot/             # LangChain & LangGraph AI agent and tools
+│   │   ├── core/                # Config, security, JWT, database session
+│   │   ├── models/              # SQLAlchemy async models
+│   │   └── schemas/             # Pydantic v2 validation schemas
+│   ├── alembic/                 # Database migrations
+│   └── scripts/                 # Seed scripts and maintenance utilities
+├── frontend/
+│   ├── src/
+│   │   ├── components/          # Reusable UI components, FloorPlanCanvas, Chatbot
+│   │   ├── context/             # AuthContext, LocationContext
+│   │   ├── layouts/             # MainLayout, AdminLayout
+│   │   ├── pages/               # User and Admin views
+│   │   └── services/            # Axios API client with automatic JWT injection
+└── .env                         # Centralized environment variables
+```
+
+### Stack Components:
+- **Frontend:** React 19, TypeScript, Vite, React Router v6, Tailwind CSS, `@azure/msal-react`, Axios, Lucide React, Framer Motion.
+- **Backend:** FastAPI, Python 3.10+, SQLAlchemy 2.0 (Async), `asyncpg`, Alembic, PyJWT, Pydantic v2, Uvicorn.
+- **Database:** PostgreSQL with partial unique constraints.
+- **AI / LLM:** LangChain, LangGraph, OpenRouter (`openai/gpt-4o-mini`).
+- **Payments:** Stripe Checkout & Webhooks.
 
 ---
 
-## Default Credentials
-After running the seed script, you can log in with:
+## 🚀 Getting Started
 
-**Admin:**
-- Email: `admin@example.com`
-- Password: `admin123`
+### 1. Prerequisites
+- **Node.js**: v18+ & npm
+- **Python**: 3.10+
+- **PostgreSQL**: 14+
 
-**User:**
-- Email: `user@example.com`
-- Password: `user123`
+### 2. Database Initialization
+Create the PostgreSQL database:
+```sql
+CREATE DATABASE seat_booking;
+```
 
-## Architecture Highlights
-- **Concurrency Control:** Double-booking is prevented at the database level using a partial unique index on `(seat_id, booking_date, time_slot_id)` where `status IN ('PENDING', 'CONFIRMED')`.
-- **MSAL Integration:** The frontend uses `@azure/msal-react` for standard popup authentication, while the backend verifies the claims and seamlessly links the Entra ID to a local profile.
-- **Design System:** Tailwind v4 utility classes plus a small set of CSS Custom Properties (colors, radii) defined in `frontend/src/index.css`; the root font-size is intentionally bumped above the 16px browser default so Tailwind's rem-based type and spacing scale render larger app-wide.
-- **AI Chatbot:** `backend/app/chatbot/` - `tools.py` holds the provider-agnostic booking/search functions (the only code that touches the database) and returns real IDs (not names) for anything a booking might need, `langchain_service.py` is the sole file that talks to LangChain/LangGraph/OpenRouter (builds the `ChatOpenAI` model pointed at OpenRouter and a `create_agent` tool-calling graph), and `service.py` wires them together. Booking-mutating tools never write to the database directly - they return a confirmation payload that the frontend renders as a card, and the actual booking still goes through the normal `/api/bookings` endpoint after the user confirms.
-- **Multi-slot / multi-day bookings:** Checking several Time Slots on Book Desk/Seat, or setting Day Pass "Number of Days" > 1, creates one booking per slot/day through the existing `POST /api/bookings/` endpoint (no duplicate booking logic) - each is independently validated (availability, capacity, wallet balance) by the backend.
-- **Admin Settings persistence:** `system_settings` is a single-row table (`app/models/system_settings.py`) read/written via `GET`/`PUT /api/admin/settings`; the frontend fetches it on load and saves through the API instead of only holding values in local component state.
+### 3. Environment Variables
+Create a `.env` file in the project root:
+```env
+# Database
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=seat_booking
+
+# Security
+JWT_SECRET=your_super_secret_jwt_key_here
+
+# Microsoft Entra ID (SSO)
+VITE_ENTRA_CLIENT_ID=your_entra_client_id
+VITE_ENTRA_TENANT_ID=your_entra_tenant_id
+VITE_ENTRA_REDIRECT_URI=http://localhost:3000
+
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# AI Chatbot (OpenRouter)
+OPENROUTER_API_KEY=sk-or-v1-...
+OPENROUTER_MODEL=openai/gpt-4o-mini
+
+# Frontend & CORS
+FRONTEND_URL=http://localhost:3000,http://localhost:5173
+VITE_API_URL=http://localhost:8000/api
+```
+
+### 4. Backend Setup
+```bash
+cd backend
+python -m venv .venv
+
+# Windows
+.\.venv\Scripts\activate
+# macOS/Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
+alembic upgrade head
+python scripts/seed.py
+uvicorn app.main:app --reload --port 8000
+```
+
+### 5. Frontend Setup
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npm run dev
+```
+Open `http://localhost:3000` in your browser.
+
+---
+
+## 🔒 Security & Concurrency Highlights
+- **Zero Double-Bookings:** Enforced at the relational engine level using PostgreSQL partial indexes.
+- **JWT & Bearer Tokens:** Auto-injected in all requests via Axios interceptors.
+- **Stripe Webhook Signatures:** Verified using `stripe.Webhook.construct_event`.
+- **Microsoft Graph Avatar Caching:** Cached in local state to minimize roundtrips while preserving real-time synchronization.
+

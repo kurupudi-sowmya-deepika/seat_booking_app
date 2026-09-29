@@ -14,11 +14,11 @@ import ChatbotWidget from '../components/ChatbotWidget';
 import NotificationCenter from '../components/NotificationCenter';
 
 export const MainLayout: React.FC = () => {
-  const { user, logout } = useAuth();
-  const { 
-    selectedLocation, 
-    selectedOffice, 
-    setSelectedLocation, 
+  const { user, logout, profilePhoto } = useAuth();
+  const {
+    selectedLocation,
+    selectedOffice,
+    setSelectedLocation,
     setSelectedOffice,
     locations,
     offices,
@@ -75,7 +75,6 @@ export const MainLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 font-['Segoe_UI',Arial,sans-serif] overflow-hidden">
-      <div className="bosch-supergraphic shrink-0" aria-hidden="true" />
       <div className="flex min-h-0 flex-1">
         {/* Mobile Drawer Backdrop */}
         {mobileMenuOpen && (
@@ -187,7 +186,7 @@ export const MainLayout: React.FC = () => {
               >
                 <Menu size={20} />
               </button>
-              
+
               {/* Location/Office Selector */}
               <div className="relative">
                 <button
@@ -265,9 +264,17 @@ export const MainLayout: React.FC = () => {
 
               {/* User Profile Tag */}
               <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition-all">
-                <div className="w-8 h-8 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-xs font-bold shadow">
-                  {user?.name?.charAt(0) || 'U'}
-                </div>
+                {profilePhoto ? (
+                  <img
+                    src={profilePhoto}
+                    alt={user?.name || 'User'}
+                    className="w-8 h-8 rounded-full object-cover border border-slate-200 shadow"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[#007bc0] text-white flex items-center justify-center text-xs font-bold shadow">
+                    {user?.name?.charAt(0) || 'U'}
+                  </div>
+                )}
                 <div className="hidden md:block text-left">
                   <span className="text-xs font-bold text-gray-800 block leading-tight">{user?.name}</span>
                   <span className="text-[10px] text-gray-400 uppercase font-semibold">{user?.role || 'Member'}</span>
@@ -282,7 +289,6 @@ export const MainLayout: React.FC = () => {
               >
                 <LogOut size={18} />
               </button>
-              <img src="/bosch-logo.png" alt="Bosch" className="hidden h-7 w-auto object-contain sm:block" />
             </div>
           </header>
 

@@ -32,8 +32,15 @@ export const AdminDayPasses: React.FC = () => {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Search & Filter
   const [search, setSearch] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<string>('ALL');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
 
   // Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,9 +68,9 @@ export const AdminDayPasses: React.FC = () => {
         api.get('/branches/'),
         api.get('/locations/'),
       ]);
-      setDayPasses(dpRes.data);
-      setBranches(brRes.data);
-      setLocations(locRes.data);
+      setDayPasses(dpRes.data || []);
+      setBranches(brRes.data || []);
+      setLocations(locRes.data || []);
     } catch (err) {
       console.error('Failed to load Day Passes', err);
     } finally {
@@ -142,95 +149,124 @@ export const AdminDayPasses: React.FC = () => {
     const matchesSearch = dp.name.toLowerCase().includes(search.toLowerCase()) ||
       getBranchName(dp.branch_id).toLowerCase().includes(search.toLowerCase());
     const matchesBranch = selectedBranch === 'ALL' || dp.branch_id === selectedBranch;
-    return matchesSearch && matchesBranch;
+    const matchesStatus = selectedStatus === 'ALL' || dp.status === selectedStatus;
+    return matchesSearch && matchesBranch && matchesStatus;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredPasses.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedPasses = filteredPasses.slice(startIndex, startIndex + pageSize);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Context Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
-            <Tag className="text-[#007bc0]" />
-            Day Passes Management
+          <div className="flex items-center gap-2 text-xs text-[#007bc0] font-bold uppercase tracking-wider mb-1">
+            <span>Workspace Hierarchy</span>
+            <span>•</span>
+            <span>Day Pass Subscriptions</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2.5">
+            <Tag className="text-[#007bc0]" size={26} />
+            Day Pass Tiers & Governance
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Configure daily flex passes, branch capacities, and single-day access tariffs.
+          <p className="text-xs text-gray-500 mt-1">
+            Configure flexible daily access passes, daily campus quotas, hot desk allowances, and daily tariffs.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-3 self-start sm:self-auto">
           <button 
             onClick={fetchData} 
             className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-sm"
             title="Refresh"
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 bg-[#007bc0] hover:bg-[#005a8c] text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition shadow-[#007bc0]/20"
+            className="flex items-center gap-2 bg-[#007bc0] hover:bg-[#005a8c] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition shadow-[#007bc0]/20"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             Add Day Pass Tier
           </button>
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Tiers</span>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total Tiers</span>
           <p className="text-2xl font-black text-gray-900 mt-1">{dayPasses.length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-green-500 uppercase tracking-wider">Active</span>
-          <p className="text-2xl font-black text-green-600 mt-1">{dayPasses.filter(d => d.status === 'ACTIVE').length}</p>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Active Tiers</span>
+          <p className="text-2xl font-black text-emerald-600 mt-1">{dayPasses.filter(d => d.status === 'ACTIVE').length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-purple-500 uppercase tracking-wider">Total Daily Capacity</span>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider">Total Daily Capacity</span>
           <p className="text-2xl font-black text-purple-600 mt-1">{dayPasses.reduce((acc, d) => acc + d.daily_capacity, 0)}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Avg Daily Price</span>
-          <p className="text-2xl font-black text-blue-600 mt-1">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-[#007bc0] uppercase tracking-wider">Avg Daily Tariff</span>
+          <p className="text-2xl font-black text-[#007bc0] mt-1">
             ₹{dayPasses.length ? Math.round(dayPasses.reduce((acc, d) => acc + d.price, 0) / dayPasses.length) : 0}
           </p>
         </div>
       </div>
 
-      {/* Search & Filter */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
+      {/* Search & Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
         <div className="relative w-full md:w-80">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by pass name or branch..."
+            placeholder="Search pass name or campus..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#007bc0]/20 focus:border-[#007bc0]"
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            className="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
           />
         </div>
 
-        <select
-          value={selectedBranch}
-          onChange={(e) => setSelectedBranch(e.target.value)}
-          className="px-3.5 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0] w-full md:w-auto"
-        >
-          <option value="ALL">All Branches ({branches.length})</option>
-          {branches.map(b => (
-            <option key={b.id} value={b.id}>{b.name} ({getLocationForBranch(b.id)})</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+            <Filter size={14} />
+            <span>Filters:</span>
+          </div>
+
+          <select
+            value={selectedBranch}
+            onChange={(e) => { setSelectedBranch(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+          >
+            <option value="ALL">All Branches ({branches.length})</option>
+            {branches.map(b => (
+              <option key={b.id} value={b.id}>{b.name} ({getLocationForBranch(b.id)})</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedStatus}
+            onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+          >
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+        </div>
       </div>
 
       {/* Cards Grid */}
       {loading ? (
         <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">Loading Day Passes...</div>
       ) : filteredPasses.length === 0 ? (
-        <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">No Day Passes configured.</div>
+        <div className="p-12 text-center text-gray-400 bg-white rounded-2xl border">No Day Passes matching criteria.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPasses.map((dp) => (
+          {paginatedPasses.map((dp) => (
             <div 
               key={dp.id} 
               className="bg-white rounded-2xl border border-gray-200/80 p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between"
@@ -295,6 +331,50 @@ export const AdminDayPasses: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-5 py-3.5 border border-gray-200 rounded-2xl shadow-sm">
+        <div className="text-xs font-semibold text-gray-500">
+          Showing <span className="font-bold text-gray-800">{filteredPasses.length > 0 ? startIndex + 1 : 0}</span> to{' '}
+          <span className="font-bold text-gray-800">{Math.min(startIndex + pageSize, filteredPasses.length)}</span> of{' '}
+          <span className="font-bold text-gray-800">{filteredPasses.length}</span> day passes
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Passes per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700"
+            >
+              <option value={6}>6</option>
+              <option value={12}>12</option>
+              <option value={24}>24</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-bold text-gray-700 px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Modal */}
       {isModalOpen && (

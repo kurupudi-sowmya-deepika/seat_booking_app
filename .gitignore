@@ -1,7 +1,13 @@
-# Environments
+# Environments & Secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+secrets/
 
 # Node / Vite / React
 node_modules/
@@ -13,8 +19,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.eslintcache
 
-# Python / FastAPI
+# Python / FastAPI / Uvicorn
 __pycache__/
 *.py[cod]
 *$py.class
@@ -25,22 +32,38 @@ env/
 .coverage
 htmlcov/
 *.sqlite3
+*.db
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
 
-# Stripe CLI
+# Stripe CLI & Payment test data
 .stripe/
 
-# Editor directories and OS files
+# Editor directories, IDE & AI Agents
 .vscode/*
 !.vscode/extensions.json
 .idea/
-.DS_Store
-Thumbs.db
+.agents/
+.gemini/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swo
+*.swp
 
-# Logs
+# OS Files
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Logs & Temp
 logs/
 *.log
+tmp/
+temp/
+scratch/
+

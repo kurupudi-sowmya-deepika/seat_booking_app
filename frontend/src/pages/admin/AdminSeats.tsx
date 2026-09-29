@@ -43,9 +43,16 @@ export const AdminSeats: React.FC = () => {
 
   // Filters & View Mode
   const [search, setSearch] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<string>('ALL');
+  const [selectedBranch, setSelectedBranch] = useState<string>('ALL');
   const [selectedRoom, setSelectedRoom] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
+  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -153,51 +160,76 @@ export const AdminSeats: React.FC = () => {
   };
 
   const filteredSeats = seats.filter(s => {
-    const matchesSearch = s.seat_number.toLowerCase().includes(search.toLowerCase()) ||
-      getRoomName(s.room_id).toLowerCase().includes(search.toLowerCase());
-    const matchesRoom = selectedRoom === 'ALL' || s.room_id === selectedRoom;
-    const matchesType = selectedType === 'ALL' || s.seat_type === selectedType;
-    return matchesSearch && matchesRoom && matchesType;
+    const rm = rooms.find(r => r.id === s.room_id);
+    const br = rm ? branches.find(b => b.id === rm.branch_id) : null;
+    const loc = br ? locations.find(l => l.id === br.location_id) : null;
+
+    if (search) {
+      const q = search.toLowerCase();
+      const matchNum = s.seat_number.toLowerCase().includes(q);
+      const matchRoom = rm && rm.name.toLowerCase().includes(q);
+      const matchBranch = br && br.name.toLowerCase().includes(q);
+      if (!matchNum && !matchRoom && !matchBranch) return false;
+    }
+
+    if (selectedLocation !== 'ALL' && loc?.id !== selectedLocation) return false;
+    if (selectedBranch !== 'ALL' && br?.id !== selectedBranch) return false;
+    if (selectedRoom !== 'ALL' && s.room_id !== selectedRoom) return false;
+    if (selectedType !== 'ALL' && s.seat_type !== selectedType) return false;
+    if (selectedStatus !== 'ALL' && s.status !== selectedStatus) return false;
+
+    return true;
   });
 
-  // Group seats hierarchically by Location -> Branch -> Room
+  // Pagination logic
+  const totalPages = Math.ceil(filteredSeats.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedSeats = filteredSeats.slice(startIndex, startIndex + pageSize);
+
+  // Group paginated seats hierarchically by Location -> Branch -> Room
   const groupedHierarchy = locations.map(loc => {
     const locBranches = branches.filter(b => b.location_id === loc.id);
     const branchesWithRooms = locBranches.map(br => {
       const brRooms = rooms.filter(r => r.branch_id === br.id);
       const roomsWithSeats = brRooms.map(rm => {
-        const rmSeats = filteredSeats.filter(s => s.room_id === rm.id);
+        const rmSeats = paginatedSeats.filter(s => s.room_id === rm.id);
         return { room: rm, seats: rmSeats };
-      }).filter(item => item.seats.length > 0 || brRooms.length === 0);
+      }).filter(item => item.seats.length > 0);
 
       const totalSeatsInBranch = roomsWithSeats.reduce((acc, r) => acc + r.seats.length, 0);
       return { branch: br, roomsWithSeats, totalSeatsInBranch };
-    }).filter(bGroup => bGroup.totalSeatsInBranch > 0 || locBranches.length === 0);
+    }).filter(bGroup => bGroup.totalSeatsInBranch > 0);
 
     const totalSeatsInLoc = branchesWithRooms.reduce((acc, b) => acc + b.totalSeatsInBranch, 0);
     return { location: loc, branchesWithRooms, totalSeatsInLoc };
-  }).filter(group => group.totalSeatsInLoc > 0 || locations.length === 0);
+  }).filter(group => group.totalSeatsInLoc > 0);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Contextual Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-sm">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2.5">
-            <Armchair className="text-[#007bc0]" />
+          <div className="flex items-center gap-2 text-xs text-[#007bc0] font-bold uppercase tracking-wider mb-1">
+            <span>Workspace Governance</span>
+            <span>•</span>
+            <span>Inventory Management</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2.5">
+            <Armchair className="text-[#007bc0]" size={26} />
             Desks & Seat Inventory
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Configure workstations, seat zones, dynamic pricing, and floor allocations across all campuses.
+          <p className="text-xs text-gray-500 mt-1">
+            Configure workstations, seat zones, dynamic pricing, and floor allocations across campus floors.
           </p>
         </div>
+
         <div className="flex items-center gap-3 self-start sm:self-auto">
           {/* View Switcher: Grid vs Table */}
-          <div className="flex bg-gray-200/80 p-1 rounded-xl">
+          <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
             <button
               onClick={() => setViewMode('grid')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                viewMode === 'grid' ? 'bg-white text-[#007bc0] shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                viewMode === 'grid' ? 'bg-white text-[#007bc0] shadow-sm' : 'text-gray-500 hover:text-gray-800'
               }`}
               title="Grid View"
             >
@@ -206,7 +238,7 @@ export const AdminSeats: React.FC = () => {
             <button
               onClick={() => setViewMode('table')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                viewMode === 'table' ? 'bg-white text-[#007bc0] shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                viewMode === 'table' ? 'bg-white text-[#007bc0] shadow-sm' : 'text-gray-500 hover:text-gray-800'
               }`}
               title="Table View"
             >
@@ -219,75 +251,100 @@ export const AdminSeats: React.FC = () => {
             className="p-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-sm"
             title="Refresh"
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
+
           <button
             onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 bg-[#007bc0] hover:bg-[#005a8c] text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition shadow-[#007bc0]/20"
+            className="flex items-center gap-2 bg-[#007bc0] hover:bg-[#005a8c] text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition shadow-[#007bc0]/20"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             Add New Desk
           </button>
         </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats Summary row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Seats</span>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total Seats</span>
           <p className="text-2xl font-black text-gray-900 mt-1">{seats.length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-green-500 uppercase tracking-wider">Active</span>
-          <p className="text-2xl font-black text-green-600 mt-1">{seats.filter(s => s.status === 'ACTIVE').length}</p>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Active Bookable</span>
+          <p className="text-2xl font-black text-emerald-600 mt-1">{seats.filter(s => s.status === 'ACTIVE').length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-purple-500 uppercase tracking-wider">Ergonomic</span>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider">Ergonomic Workstations</span>
           <p className="text-2xl font-black text-purple-600 mt-1">{seats.filter(s => s.seat_type === 'ERGONOMIC').length}</p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-          <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Avg Price</span>
-          <p className="text-2xl font-black text-blue-600 mt-1">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+          <span className="text-[11px] font-bold text-[#007bc0] uppercase tracking-wider">Avg Tariff / Slot</span>
+          <p className="text-2xl font-black text-[#007bc0] mt-1">
             ₹{seats.length ? Math.round(seats.reduce((acc, s) => acc + s.price, 0) / seats.length) : 0}
           </p>
         </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-80">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Search & Filters Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
+        <div className="relative w-full md:w-72">
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by seat number or room..."
+            placeholder="Search seat number or zone..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#007bc0]/20 focus:border-[#007bc0]"
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            className="w-full pl-9 pr-4 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
           />
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto">
+        <div className="flex items-center gap-2.5 w-full md:w-auto overflow-x-auto">
           <select
-            value={selectedRoom}
-            onChange={(e) => setSelectedRoom(e.target.value)}
-            className="px-3.5 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+            value={selectedLocation}
+            onChange={(e) => { setSelectedLocation(e.target.value); setSelectedBranch('ALL'); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
           >
-            <option value="ALL">All Rooms ({rooms.length})</option>
-            {rooms.map(r => (
-              <option key={r.id} value={r.id}>{r.name}</option>
+            <option value="ALL">All Locations</option>
+            {locations.map(l => (
+              <option key={l.id} value={l.id}>{l.name}</option>
             ))}
           </select>
 
           <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="px-3.5 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+            value={selectedBranch}
+            onChange={(e) => { setSelectedBranch(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
           >
-            <option value="ALL">All Desk Types</option>
-            <option value="STANDARD">Standard Desk</option>
-            <option value="ERGONOMIC">Ergonomic Desk</option>
+            <option value="ALL">All Branches</option>
+            {branches
+              .filter(b => selectedLocation === 'ALL' || b.location_id === selectedLocation)
+              .map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))
+            }
+          </select>
+
+          <select
+            value={selectedType}
+            onChange={(e) => { setSelectedType(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+          >
+            <option value="ALL">All Desk Tiers</option>
+            <option value="STANDARD">Standard</option>
+            <option value="ERGONOMIC">Ergonomic</option>
             <option value="WINDOW">Window View</option>
-            <option value="QUIET_ZONE">Quiet Focus Zone</option>
+            <option value="QUIET_ZONE">Quiet Zone</option>
+          </select>
+
+          <select
+            value={selectedStatus}
+            onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
+            className="px-3 py-2 text-xs font-bold bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:border-[#007bc0]"
+          >
+            <option value="ALL">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
           </select>
         </div>
       </div>
@@ -308,7 +365,7 @@ export const AdminSeats: React.FC = () => {
                   {locGroup.location.name} <span className="text-sm font-semibold text-gray-500">({locGroup.location.city})</span>
                 </h2>
                 <span className="ml-auto text-xs font-extrabold px-2.5 py-1 bg-blue-100 text-[#007bc0] rounded-full">
-                  {locGroup.totalSeatsInLoc} Desks
+                  {locGroup.totalSeatsInLoc} Seats
                 </span>
               </div>
 
@@ -321,7 +378,7 @@ export const AdminSeats: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <Building2 className="text-[#005691]" size={16} />
                         <h3 className="text-sm font-bold text-gray-800">{brGroup.branch.name} Campus</h3>
-                        <span className="text-xs text-gray-500">— {brGroup.totalSeatsInBranch} Total Seats</span>
+                        <span className="text-xs text-gray-500">— {brGroup.totalSeatsInBranch} Seats</span>
                       </div>
                     </div>
 
@@ -333,14 +390,8 @@ export const AdminSeats: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <Layers size={15} className="text-[#007bc0]" />
                               <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">{rmGroup.room.name}</h4>
-                              <span className="text-[11px] text-gray-500">({rmGroup.seats.length} seats)</span>
+                              <span className="text-[11px] text-gray-500">({rmGroup.seats.length} seats displayed)</span>
                             </div>
-                            <button
-                              onClick={() => handleOpenModal(undefined, rmGroup.room.id)}
-                              className="text-xs text-[#007bc0] hover:underline font-bold flex items-center gap-1"
-                            >
-                              <Plus size={13} /> Add Desk
-                            </button>
                           </div>
 
                           {/* View Mode: GRID vs TABLE */}
@@ -459,6 +510,51 @@ export const AdminSeats: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white px-5 py-3.5 border border-gray-200 rounded-2xl shadow-sm">
+        <div className="text-xs font-semibold text-gray-500">
+          Showing <span className="font-bold text-gray-800">{filteredSeats.length > 0 ? startIndex + 1 : 0}</span> to{' '}
+          <span className="font-bold text-gray-800">{Math.min(startIndex + pageSize, filteredSeats.length)}</span> of{' '}
+          <span className="font-bold text-gray-800">{filteredSeats.length}</span> workstations
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Desks per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+              className="px-2 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-700"
+            >
+              <option value={6}>6</option>
+              <option value={12}>12</option>
+              <option value={24}>24</option>
+              <option value={48}>48</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-bold text-gray-700 px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:hover:bg-white transition"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Modal */}
       {isModalOpen && (

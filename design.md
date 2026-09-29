@@ -1,8 +1,8 @@
-# Bosch Seat Booking App - Design Document
+# intuceo Seat Booking App - Design Document
 
 ## Overview
 
-**Bosch Seat Booking App** is an enterprise workspace management and booking platform designed for Bosch employees.
+**intuceo Seat Booking App** is an enterprise workspace management and booking platform designed for intuceo employees.
 
 The application provides a secure and modern experience for booking:
 
@@ -13,11 +13,11 @@ The application provides a secure and modern experience for booking:
 * Collaboration spaces
 * Other bookable workplace resources
 
-The application uses **Microsoft Azure AD / Microsoft Entra ID** for secure employee authentication and follows a clean Bosch-inspired enterprise design language.
+The application uses **Microsoft Azure AD / Microsoft Entra ID** for secure employee authentication and follows a clean intuceo-inspired enterprise design language.
 
 ---
 
-# Design Tokens — "Bosch Light"
+# Design Tokens — "intuceo Light"
 
 This is the canonical token set for the application. Every color, type size, radius, and spacing value used anywhere in the product should trace back to one of these — no one-off hex codes or ad-hoc pixel values in new work.
 
@@ -25,7 +25,7 @@ This is the canonical token set for the application. Every color, type size, rad
 
 | Token       | Hex       | Role                                                              |
 | ----------- | --------- | ------------------------------------------------------------------ |
-| `primary`   | `#007BC0` | Bosch blue — links, focus states, hover on primary actions, the one strong color signal in the system |
+| `primary`   | `#007BC0` | intuceo blue — links, focus states, hover on primary actions, the one strong color signal in the system |
 | `secondary` | `#000000` | Black — headings, body copy, and the fill for the strongest interactive element (the primary button) |
 | `tertiary`  | `#E5E7EB` | Soft gray — borders, dividers, low-emphasis surfaces (chips, secondary-button hover) |
 | `neutral`   | `#FFFFFF` | Page background |
@@ -34,11 +34,11 @@ This is the canonical token set for the application. Every color, type size, rad
 | `error`     | `#D00000` | Validation and destructive states only — used sparingly so blue stays the dominant accent |
 | `muted`     | `#6B7280` | Practical addition, not in the base palette: secondary/caption copy where pure black is too heavy |
 
-Bosch red is **not** part of this palette. Where earlier drafts of this document called for red as a "brand accent," that role is now served by restraint and black/blue contrast instead — see Design Principles.
+intuceo red is **not** part of this palette. Where earlier drafts of this document called for red as a "brand accent," that role is now served by restraint and black/blue contrast instead — see Design Principles.
 
 ## Typography
 
-Single family — **Boschsans**, falling back to Helvetica Neue, Helvetica, Arial, sans-serif. Letter-spacing stays at `0px` throughout; the voice is direct and technical, not decorative.
+Single family — **intuceosans**, falling back to Helvetica Neue, Helvetica, Arial, sans-serif. Letter-spacing stays at `0px` throughout; the voice is direct and technical, not decorative.
 
 | Style            | Size  | Weight | Line height |
 | ---------------- | ----: | -----: | ----------: |
@@ -89,7 +89,7 @@ The system is intentionally flat. Hierarchy comes from white-on-white layering, 
 ## Design Goals
 
 * Simple and professional enterprise experience
-* Consistent Bosch visual identity
+* Consistent intuceo visual identity
 * Secure Azure AD / Microsoft Entra ID authentication
 * Easy seat and workspace booking
 * Meeting and conference room booking
@@ -102,9 +102,9 @@ The system is intentionally flat. Hierarchy comes from white-on-white layering, 
 
 # Branding Assets
 
-## Bosch Logo
+## intuceo Logo
 
-Use the official Bosch corporate logo as the primary brand element.
+Use the official intuceo corporate logo as the primary brand element.
 
 ### Placement
 
@@ -117,7 +117,7 @@ Use the official Bosch corporate logo as the primary brand element.
 
 ## Corporate Ribbon (Supergraphic)
 
-The multi-color Bosch supergraphic bar is the application's one signature visual element — everything else in "Bosch Light" is deliberately quiet (flat, black/white/blue), so this is where the brand gets to be loud. It appears as a full-width strip at the very top of every top-level screen: login, the employee portal, and the admin portal alike. Implemented as a CSS gradient (six equal segments) rather than a raster image, so it stays crisp at any width.
+The multi-color intuceo supergraphic bar is the application's one signature visual element — everything else in "intuceo Light" is deliberately quiet (flat, black/white/blue), so this is where the brand gets to be loud. It appears as a full-width strip at the very top of every top-level screen: login, the employee portal, and the admin portal alike. Implemented as a CSS gradient (six equal segments) rather than a raster image, so it stays crisp at any width.
 
 ### Purpose
 
@@ -159,12 +159,12 @@ The login screen is divided into two panels.
 |  LEFT PANEL                         RIGHT PANEL                |
 |  -------------------------------    -------------------------- |
 |                                                                |
-|  Bosch Logo                         Secure Authentication      |
+|  intuceo Logo                         Secure Authentication      |
 |                                                                |
-|  Bosch Seat                         Welcome to                 |
-|  Booking App                        Bosch Seat Booking App     |
+|  intuceo Seat                         Welcome to                 |
+|  Booking App                        intuceo Seat Booking App     |
 |                                                                |
-|  Workplace Management               Sign in with your Bosch    |
+|  Workplace Management               Sign in with your intuceo    |
 |  Badge                              account                    |
 |                                                                |
 |                                     [ Sign in with Microsoft ]  |
@@ -186,7 +186,7 @@ Use a light blue-gray background:
 background: #F4F8FB;
 ```
 
-The panel should contain subtle decorative circular elements using low-opacity Bosch blue (`primary` at ~12% opacity).
+The panel should contain subtle decorative circular elements using low-opacity intuceo blue (`primary` at ~12% opacity).
 
 ```css
 background: rgba(0, 123, 192, 0.12);
@@ -209,19 +209,19 @@ Position:
 Display:
 
 ```text
-Bosch Seat
+intuceo Seat
 Booking App
 ```
 
 Alternative compact representation:
 
 ```text
-Bosch Seat Booking App
+intuceo Seat Booking App
 ```
 
 Typography (headline-lg/display):
 
-* Font: Boschsans
+* Font: intuceosans
 * Weight: 700
 * Desktop size: `45px–64px`
 * Color: `#000000` (on-surface)
@@ -264,7 +264,7 @@ The description should use muted gray text and should not compete with the produ
 Display:
 
 ```text
-© 2026 Robert Bosch GmbH. All rights reserved.
+© 2026 Robert intuceo GmbH. All rights reserved.
 ```
 
 Use:
@@ -286,7 +286,7 @@ SECURE AUTHENTICATION
 
 Style:
 
-* Bosch blue background
+* intuceo blue background
 * White text
 * Rounded pill
 * Small uppercase typography
@@ -299,12 +299,12 @@ Style:
 
 ```text
 Welcome to
-Bosch Seat Booking App
+intuceo Seat Booking App
 ```
 
 Typography (headline-md):
 
-* Font: Boschsans
+* Font: intuceosans
 * Weight: 700
 * Size: `32px–45px`
 * Color: `#000000` (on-surface)
@@ -316,7 +316,7 @@ Typography (headline-md):
 Display:
 
 ```text
-Sign in with your Bosch account to book
+Sign in with your intuceo account to book
 seats, meeting rooms and workspaces.
 ```
 
@@ -417,7 +417,7 @@ If authentication succeeds but the employee is not authorized:
 
 ```text
 Your account is not authorized to access
-the Bosch Seat Booking App.
+the intuceo Seat Booking App.
 
 Please contact your administrator.
 ```
@@ -446,7 +446,7 @@ The dashboard should provide a quick overview of workspace availability.
 
 ```text
 +----------------------------------------------------------------+
-| Bosch Seat Booking App                         User Profile    |
+| intuceo Seat Booking App                         User Profile    |
 +----------------------------------------------------------------+
 |                                                                |
 |  Welcome, Employee                                             |
@@ -683,7 +683,7 @@ Assistant:
 I found 3 available rooms.
 
 1. Atlas - 10 seats
-2. Bosch Room - 12 seats
+2. intuceo Room - 12 seats
 3. Innovation Room - 10 seats
 
 Would you like to book one?
@@ -732,11 +732,11 @@ Admin
 
 # Color Palette
 
-See **Design Tokens — "Bosch Light"** above for the canonical set. Quick reference:
+See **Design Tokens — "intuceo Light"** above for the canonical set. Quick reference:
 
 | Color      | Hex       | Usage                  |
 | ---------- | --------- | ---------------------- |
-| Primary (Bosch Blue) | `#007BC0` | Links, focus, hover on primary actions — the one strong accent |
+| Primary (intuceo Blue) | `#007BC0` | Links, focus, hover on primary actions — the one strong accent |
 | Secondary (Black)    | `#000000` | Headings, body text, primary-button fill |
 | Tertiary (Gray)      | `#E5E7EB` | Borders, dividers, chips |
 | Neutral / Surface    | `#FFFFFF` | Page and component backgrounds |
@@ -751,14 +751,14 @@ There is no red "brand accent" in this palette — destructive actions use `erro
 Primary font:
 
 ```text
-Boschsans
+intuceosans
 ```
 
 Fallback:
 
 ```css
 font-family:
-'Boschsans',
+'intuceosans',
 'Helvetica Neue',
 Helvetica,
 Arial,
@@ -921,7 +921,7 @@ The booking button should remain easily accessible.
 ```text
 User Opens Application
         ↓
-Bosch Login Page
+intuceo Login Page
         ↓
 Sign in with Microsoft
         ↓
@@ -1009,9 +1009,9 @@ Avoid unnecessary visual elements.
 
 Maintain an enterprise application appearance.
 
-### Bosch-Inspired
+### intuceo-Inspired
 
-Use Bosch colors and branding consistently without overusing brand accents.
+Use intuceo colors and branding consistently without overusing brand accents.
 
 ### Simple
 
@@ -1060,12 +1060,12 @@ Potential future features include:
 
 # Design Summary
 
-The **Bosch Seat Booking App** should provide a clean, modern, and enterprise-focused workspace booking experience.
+The **intuceo Seat Booking App** should provide a clean, modern, and enterprise-focused workspace booking experience.
 
 The design combines:
 
 ```text
-Bosch Branding
+intuceo Branding
       +
 Microsoft Entra ID
       +
