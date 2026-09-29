@@ -67,3 +67,7 @@ tmp/
 temp/
 scratch/
 
+# AI Assistant Instructions
+CLAUDE.md
+claude.md
+
