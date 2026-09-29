@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 # 8 days
     
+    # Trusted service-to-service caller (WorkPilot backend, via the Seat Booking MCP server).
+    # When set, a request carrying a matching `X-Service-Token` header may act as an EXISTING,
+    # ACTIVE user named by `X-On-Behalf-Of-Email`. Empty (default) = feature disabled.
+    # Generate with e.g. `openssl rand -hex 32`; it must match the caller's own setting.
+    WORKPILOT_SERVICE_TOKEN: str = ""
+
     # Stripe
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""

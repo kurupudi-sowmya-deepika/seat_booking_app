@@ -67,6 +67,15 @@ class SeatBookingAPIClient:
             "(or `employee_email`, if already authenticated this session) on this call."
         )
 
+    def _trusted_caller_headers(self, employee_email: Optional[str]) -> Optional[Dict[str, str]]:
+        """Service identity headers, when the shared secret is configured and an email is given."""
+        if settings.WORKPILOT_SERVICE_TOKEN and employee_email:
+            return {
+                "X-Service-Token": settings.WORKPILOT_SERVICE_TOKEN,
+                "X-On-Behalf-Of-Email": employee_email,
+            }
+        return None
+
     async def _request(
         self,
         method: str,
@@ -83,7 +92,10 @@ class SeatBookingAPIClient:
             "User-Agent": "SeatBooking-MCP-Server/1.0"
         }
 
-        if requires_auth:
+        trusted_headers = self._trusted_caller_headers(employee_email) if requires_auth and not auth_token else None
+        if trusted_headers:
+            headers.update(trusted_headers)
+        elif requires_auth:
             token = await self._get_auth_token(employee_email=employee_email, auth_token=auth_token)
             headers["Authorization"] = f"Bearer {token}"
 
@@ -97,7 +109,7 @@ class SeatBookingAPIClient:
             )
 
             # If token expired (401), clear cache and retry once
-            if resp.status_code == 401 and requires_auth and not auth_token:
+            if resp.status_code == 401 and requires_auth and not auth_token and not trusted_headers:
                 email = employee_email or settings.SEAT_BOOKING_USER_EMAIL
                 self._tokens.pop(email, None)
                 self._tokens.pop("default", None)
@@ -231,6 +243,14 @@ class SeatBookingAPIClient:
             "participant_emails": participant_emails or []
         }
         return await self._request("POST", "/bookings/", json_data=payload, employee_email=employee_email, auth_token=auth_token)
+
+    async def get_current_user(self, employee_email: Optional[str] = None, auth_token: Optional[str] = None) -> Dict[str, Any]:
+        """Return the acting employee's own profile (used to confirm identity)."""
+        return await self._request("GET", "/auth/me", employee_email=employee_email, auth_token=auth_token)
+
+    async def search_users(self, search: str, employee_email: Optional[str] = None, auth_token: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Search active colleagues by name/email (autocomplete endpoint; min 2 chars, max 10 results)."""
+        return await self._request("GET", "/users/search", params={"search": search}, employee_email=employee_email, auth_token=auth_token)
 
     async def get_my_bookings(self, employee_email: Optional[str] = None, auth_token: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retrieve booking history for the requesting employee."""

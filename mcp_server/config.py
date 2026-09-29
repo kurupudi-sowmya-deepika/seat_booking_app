@@ -24,6 +24,15 @@ class MCPSettings(BaseSettings):
     MCP_HOST: str = os.getenv("MCP_HOST", "0.0.0.0")
     MCP_PORT: int = int(os.getenv("MCP_PORT", "8100"))
 
+    # Bearer token every MCP client must present (Authorization: Bearer ...) when running over
+    # streamable-http. REQUIRED whenever WORKPILOT_SERVICE_TOKEN is set - see server.py.
+    MCP_AUTH_TOKEN: str = os.getenv("MCP_AUTH_TOKEN", "")
+
+    # Shared secret with the Seat Booking backend (its WORKPILOT_SERVICE_TOKEN). When set, tools
+    # that receive `employee_email` act as that EXISTING employee via the backend's trusted-caller
+    # path (X-Service-Token + X-On-Behalf-Of-Email) instead of needing that employee's password.
+    WORKPILOT_SERVICE_TOKEN: str = os.getenv("WORKPILOT_SERVICE_TOKEN", "")
+
     # A single shared "default employee" identity used ONLY when a tool call
     # supplies neither `auth_token` nor `employee_email` - convenient for local/
     # Claude-Desktop testing, but must stay disabled in production so every

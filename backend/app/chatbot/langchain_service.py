@@ -31,10 +31,9 @@ RECURSION_LIMIT = 25
 
 # Both are set explicitly so a hung or
 # failing request surfaces as a clear, handleable error instead of blocking
-# the chat request for minutes. Retries are generous because Gemini returns
-# transient 503 "high demand" errors often enough to break multi-turn flows.
-REQUEST_TIMEOUT_SECONDS = 30.0
-MAX_SDK_RETRIES = 5
+# the chat request for minutes.
+REQUEST_TIMEOUT_SECONDS = 45.0
+MAX_SDK_RETRIES = 2
 
 
 class LLMConfigError(RuntimeError):

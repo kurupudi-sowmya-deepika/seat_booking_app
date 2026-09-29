@@ -13,8 +13,12 @@ locally-spawned client such as Claude Desktop, or `streamable-http` to run this
 as a standalone network service another application can connect to.
 """
 
+import hmac
 from typing import List, Dict, Any, Optional
+
+import uvicorn
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 from mcp_server.client import api_client
 from mcp_server.config import settings
 
@@ -44,6 +48,35 @@ async def authenticate_employee(email: str, password: str) -> Dict[str, Any]:
     """
     token = await api_client.login(email, password)
     return {"auth_token": token, "employee_email": email}
+
+@mcp.tool()
+async def get_current_user(employee_email: Optional[str] = None, auth_token: Optional[str] = None) -> Dict[str, Any]:
+    """Return the acting employee's own profile so the caller can confirm whose identity is in use.
+
+    Args:
+        employee_email: Email of the employee to act as (trusted callers only).
+        auth_token: The employee's bearer token from authenticate_employee.
+
+    Returns:
+        Dictionary with id, name, email and role. No other personal data is returned.
+    """
+    me = await api_client.get_current_user(employee_email=employee_email, auth_token=auth_token)
+    return {key: me.get(key) for key in ("id", "name", "email", "role")}
+
+@mcp.tool()
+async def get_users(search: str, employee_email: Optional[str] = None, auth_token: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Search active colleagues by name or email (e.g. to invite meeting participants).
+
+    Args:
+        search: At least 2 characters of a name or email.
+        employee_email: Email of the employee to act as (trusted callers only).
+        auth_token: The employee's bearer token from authenticate_employee.
+
+    Returns:
+        Up to 10 matches with id, name and email only.
+    """
+    users = await api_client.search_users(search=search, employee_email=employee_email, auth_token=auth_token)
+    return [{key: u.get(key) for key in ("id", "name", "email")} for u in users]
 
 @mcp.tool()
 async def get_locations() -> List[Dict[str, Any]]:
@@ -599,9 +632,47 @@ async def get_my_wallet_balance(
     """
     return await api_client.get_wallet_balance(employee_email=employee_email, auth_token=auth_token)
 
+class BearerAuthMiddleware:
+    """Rejects any HTTP request that lacks `Authorization: Bearer <MCP_AUTH_TOKEN>` (constant-time compare)."""
+
+    def __init__(self, app, token: str):
+        self.app = app
+        self._token = token.encode("utf-8")
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            supplied = dict(scope["headers"]).get(b"authorization", b"")
+            scheme, _, value = supplied.partition(b" ")
+            if scheme.lower() != b"bearer" or not hmac.compare_digest(value.strip(), self._token):
+                response = JSONResponse({"error": "unauthorized"}, status_code=401, headers={"WWW-Authenticate": "Bearer"})
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
+def build_http_app():
+    """Streamable-HTTP ASGI app, wrapped with bearer auth when MCP_AUTH_TOKEN is set.
+
+    Refuses to start if trusted-caller mode is on without MCP auth: anyone reaching an
+    unauthenticated port could otherwise act as any employee by naming their email.
+    """
+    if settings.WORKPILOT_SERVICE_TOKEN and not settings.MCP_AUTH_TOKEN:
+        raise RuntimeError(
+            "WORKPILOT_SERVICE_TOKEN is set but MCP_AUTH_TOKEN is not. Refusing to start an "
+            "unauthenticated MCP endpoint that can act as any employee."
+        )
+    app = mcp.streamable_http_app()
+    if settings.MCP_AUTH_TOKEN:
+        app.add_middleware(BearerAuthMiddleware, token=settings.MCP_AUTH_TOKEN)
+    return app
+
+
 if __name__ == "__main__":
     # "stdio" (default): spawned as a local subprocess by a client like Claude
     # Desktop - see mcp_config.json. "streamable-http": runs as a standalone
     # network service on MCP_HOST:MCP_PORT for a separate application
     # (WorkPilot/Intuceo.Ai) to connect to over HTTP.
-    mcp.run(transport=settings.MCP_TRANSPORT)
+    if settings.MCP_TRANSPORT == "streamable-http":
+        uvicorn.run(build_http_app(), host=settings.MCP_HOST, port=settings.MCP_PORT)
+    else:
+        mcp.run(transport=settings.MCP_TRANSPORT)
