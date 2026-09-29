@@ -11,59 +11,61 @@ class SeatBookingAPIClient:
         if settings.SEAT_BOOKING_AUTH_TOKEN:
             self._tokens["default"] = settings.SEAT_BOOKING_AUTH_TOKEN
 
+    async def login(self, email: str, password: str) -> str:
+        """Authenticate a real employee with their own email + password against
+        the standard /auth/login endpoint (the same one the web app itself uses)
+        and cache the resulting JWT under their email. This is the ONLY
+        authentication path - the previous approach of POSTing a fabricated
+        payload to /auth/login/entra worked only because that endpoint didn't
+        verify a real Microsoft signature; now that it does (see backend
+        app/api/routes/auth.py), a made-up token is correctly rejected, and a
+        real password is required here instead."""
+        async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT) as client:
+            resp = await client.post(
+                f"{self.base_url}/auth/login",
+                data={"username": email, "password": password},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+        if resp.status_code != 200:
+            detail = resp.text
+            try:
+                detail = resp.json().get("detail", detail)
+            except Exception:
+                pass
+            raise RuntimeError(f"Authentication failed for '{email}': {detail}")
+
+        token = resp.json().get("access_token")
+        if not token:
+            raise RuntimeError(f"Authentication succeeded for '{email}' but no access_token was returned.")
+        self._tokens[email] = token
+        return token
+
     async def _get_auth_token(self, employee_email: Optional[str] = None, auth_token: Optional[str] = None) -> str:
-        """Acquire or retrieve cached JWT bearer token for the requesting employee."""
+        """Resolve the bearer token for a tool call. Prefers an explicit
+        `auth_token` (from a prior `authenticate_employee` call), then an
+        already-cached token for `employee_email`. Falls back to one shared
+        default-service identity ONLY when MCP_ALLOW_DEFAULT_IDENTITY is
+        enabled - see config.py - so production deployments can't silently act
+        as a single shared account when a caller forgets to authenticate."""
         if auth_token:
             return auth_token
 
-        email = employee_email or settings.SEAT_BOOKING_USER_EMAIL
-        if email in self._tokens:
-            return self._tokens[email]
-        if "default" in self._tokens and not employee_email:
-            return self._tokens["default"]
+        if employee_email and employee_email in self._tokens:
+            return self._tokens[employee_email]
 
-        # Authenticate via FastAPI /auth/login/entra (Microsoft SSO endpoint with auto-provisioning)
-        # or fallback to /auth/login
-        async with httpx.AsyncClient(timeout=settings.REQUEST_TIMEOUT) as client:
-            try:
-                # Try Entra endpoint first for corporate accounts
-                entra_payload = {
-                    "token": "mcp-service-token",
-                    "email": email,
-                    "name": settings.SEAT_BOOKING_USER_NAME or email.split("@")[0].capitalize(),
-                    "oid": f"entra-{email.replace('@', '-').replace('.', '-')}"
-                }
-                resp = await client.post(f"{self.base_url}/auth/login/entra", json=entra_payload)
-                if resp.status_code == 200:
-                    token_data = resp.json()
-                    token = token_data.get("access_token")
-                    if token:
-                        self._tokens[email] = token
-                        return token
-            except Exception:
-                pass
+        if not employee_email:
+            if "default" in self._tokens:
+                return self._tokens["default"]
+            if settings.MCP_ALLOW_DEFAULT_IDENTITY and settings.SEAT_BOOKING_USER_EMAIL and settings.SEAT_BOOKING_USER_PASSWORD:
+                token = await self.login(settings.SEAT_BOOKING_USER_EMAIL, settings.SEAT_BOOKING_USER_PASSWORD)
+                self._tokens["default"] = token
+                return token
 
-            # Fallback to standard /auth/login form endpoint
-            try:
-                login_payload = {
-                    "username": email,
-                    "password": settings.SEAT_BOOKING_USER_PASSWORD
-                }
-                resp = await client.post(
-                    f"{self.base_url}/auth/login",
-                    data=login_payload,
-                    headers={"Content-Type": "application/x-www-form-urlencoded"}
-                )
-                if resp.status_code == 200:
-                    token_data = resp.json()
-                    token = token_data.get("access_token")
-                    if token:
-                        self._tokens[email] = token
-                        return token
-            except Exception as e:
-                raise RuntimeError(f"Failed to authenticate employee '{email}' with Seat Booking API: {str(e)}")
-
-        raise RuntimeError(f"Authentication failed for employee '{email}'. Please verify credentials or token.")
+        raise RuntimeError(
+            "No employee identity to act as. Call `authenticate_employee` first with the "
+            "employee's real email and password, and pass the returned token as `auth_token` "
+            "(or `employee_email`, if already authenticated this session) on this call."
+        )
 
     async def _request(
         self,
@@ -155,7 +157,8 @@ class SeatBookingAPIClient:
             "booking_date": booking_date,
             "time_slot_id": time_slot_id
         }
-        return await self._request("GET", "/bookings/availability/seat", params=params, requires_auth=True)
+        # Public on the backend, like every other /bookings/availability/* read.
+        return await self._request("GET", "/bookings/availability/seat", params=params, requires_auth=False)
 
     async def check_room_availability(
         self,
@@ -172,7 +175,7 @@ class SeatBookingAPIClient:
             "start_time": start_time if len(start_time) == 8 else f"{start_time}:00",
             "end_time": end_time if len(end_time) == 8 else f"{end_time}:00"
         }
-        rooms = await self._request("GET", "/bookings/availability/room", params=params, requires_auth=True)
+        rooms = await self._request("GET", "/bookings/availability/room", params=params, requires_auth=False)
         if room_type:
             rooms = [r for r in rooms if r.get("room_type") == room_type]
         return rooms
@@ -257,7 +260,7 @@ class SeatBookingAPIClient:
             "branch_id": branch_id,
             "booking_date": booking_date
         }
-        return await self._request("GET", "/bookings/availability/day-pass", params=params, requires_auth=True)
+        return await self._request("GET", "/bookings/availability/day-pass", params=params, requires_auth=False)
 
     async def book_day_pass(
         self,

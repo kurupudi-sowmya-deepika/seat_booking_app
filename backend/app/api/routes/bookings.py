@@ -19,7 +19,7 @@ from app.schemas.booking import (
     BookingExtendRequest, SeatAvailability, DayPassAvailability, RoomAvailability, RoomTimelineSlot,
     RoomTimelineResponse, AlternativeResourceResponse, AlternativeResourceOption
 )
-from app.api.deps import get_current_user, get_current_admin
+from app.api.deps import get_current_user, get_current_admin, get_current_user_optional
 from app.core.config import settings
 from sqlalchemy.orm import selectinload
 
@@ -241,9 +241,11 @@ async def get_room_timeline(
     room_id: UUID,
     booking_date: date,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
-    """Return a room's bookable day as 15-minute availability intervals."""
+    """Return a room's bookable day as 15-minute availability intervals.
+    Public like every other availability endpoint - `is_mine` on each slot is
+    just False for an anonymous/unauthenticated caller."""
     room = (await db.execute(select(Room).where(Room.id == room_id))).scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -256,7 +258,7 @@ async def get_room_timeline(
         )
     )).scalars().all()
 
-    return _build_timeline_slots(bookings, current_user.id)
+    return _build_timeline_slots(bookings, current_user.id if current_user else None)
 
 
 def _build_timeline_slots(bookings: List[Booking], current_user_id) -> List[RoomTimelineSlot]:
@@ -293,7 +295,7 @@ async def get_branch_rooms_timeline(
     booking_date: date,
     room_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     room_query = select(Room).options(selectinload(Room.facilities)).where(
         Room.branch_id == branch_id,
@@ -330,7 +332,7 @@ async def get_branch_rooms_timeline(
             price_per_hour=float(room.price_per_hour or 0),
             facilities=[f.name for f in room.facilities] if room.facilities else [],
             status="UNAVAILABLE" if room_bookings else "AVAILABLE",
-            slots=_build_timeline_slots(room_bookings, current_user.id)
+            slots=_build_timeline_slots(room_bookings, current_user.id if current_user else None)
         ))
     return result
 

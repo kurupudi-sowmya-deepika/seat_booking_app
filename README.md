@@ -74,7 +74,10 @@ seat_booking_app/
 │   │   ├── models/              # SQLAlchemy async models
 │   │   └── schemas/             # Pydantic v2 validation schemas
 │   ├── alembic/                 # Database migrations
-│   └── scripts/                 # Seed scripts and maintenance utilities
+│   ├── scripts/                 # Seed scripts and maintenance utilities
+│   ├── tests/                   # Standalone end-to-end test scripts (no pytest)
+│   ├── Dockerfile
+│   └── entrypoint.sh            # Runs `alembic upgrade head` then starts gunicorn
 ├── frontend/
 │   ├── src/
 │   │   ├── components/          # Reusable UI components, FloorPlanCanvas, Chatbot
@@ -82,7 +85,16 @@ seat_booking_app/
 │   │   ├── layouts/             # MainLayout, AdminLayout
 │   │   ├── pages/               # User and Admin views
 │   │   └── services/            # Axios API client with automatic JWT injection
-└── .env                         # Centralized environment variables
+│   ├── Dockerfile               # Multi-stage: Vite build -> nginx
+│   └── nginx.conf
+├── mcp_server/                  # Model Context Protocol server for external AI agents
+│   ├── server.py                # Tool definitions (FastMCP)
+│   ├── client.py                # HTTP client to the FastAPI backend (no direct DB access)
+│   ├── config.py
+│   └── Dockerfile
+├── docker-compose.yml           # Full stack: postgres + backend + frontend + mcp_server
+├── DEPLOYMENT.md                # Production deployment runbook
+└── .env                         # Centralized environment variables (git-ignored)
 ```
 
 ### Stack Components:
@@ -140,9 +152,11 @@ VITE_API_URL=http://localhost:8000/api
 
 # MCP Server for External AI (WorkPilot / Intuceo.Ai)
 SEAT_BOOKING_API_URL=http://localhost:8000/api
-SEAT_BOOKING_USER_EMAIL=sdkurupudi@intuceo.com
-SEAT_BOOKING_USER_PASSWORD=user123
+MCP_TRANSPORT=stdio
 ```
+See [`.env.example`](.env.example) for the complete, authoritative list of
+variables (including `ENVIRONMENT`, `DEMO_WALLET_MODE`, and the rest of the
+MCP config) - the block above is just the minimum to get started locally.
 
 ### 4. Backend Setup
 ```bash
@@ -171,17 +185,51 @@ Open `http://localhost:3000` in your browser.
 ### 6. Model Context Protocol (MCP) Server Setup
 For connecting external AI agents (**WorkPilot**, **Intuceo.Ai**, **Claude Desktop**):
 ```bash
-# Run the MCP server over STDIO:
+# Local subprocess (e.g. Claude Desktop), stdio transport:
 python -m mcp_server.server
+
+# Standalone network service another application connects to over HTTP:
+MCP_TRANSPORT=streamable-http python -m mcp_server.server
 ```
-See [`mcp_server/README.md`](mcp_server/README.md) and [`mcp_config.json`](mcp_config.json) for connection manifests and tool descriptions.
+Every tool that touches an employee's own data requires a real per-employee
+token: call `authenticate_employee(email, password)` first, then pass the
+returned `auth_token` to every other tool call. See
+[`mcp_server/README.md`](mcp_server/README.md) and
+[`mcp_config.json`](mcp_config.json) for the full tool list, authentication
+model, and connection manifests for both transports.
+
+Run the end-to-end test (real login, browse, book, verify via REST, cancel)
+against a running backend:
+```bash
+python -m mcp_server.test_mcp
+```
+
+---
+
+## 🐳 Docker Deployment
+
+For a full containerized deployment (Postgres + backend + frontend + MCP
+server), see [`DEPLOYMENT.md`](DEPLOYMENT.md) for the complete guide. Quick
+start:
+```bash
+# from the repo root, with a real .env in place
+docker compose up --build
+```
+- Frontend: http://localhost:3000
+- Backend API docs: http://localhost:8000/docs (health check: `/health`)
+- MCP server: http://localhost:8100/mcp
+
+Database migrations run automatically on backend startup
+(`backend/entrypoint.sh`); rerun manually with
+`docker compose exec backend alembic upgrade head` if needed.
 
 ---
 
 ## 🔒 Security & Concurrency Highlights
 - **Zero Double-Bookings:** Enforced at the relational engine level using PostgreSQL partial indexes.
 - **JWT & Bearer Tokens:** Auto-injected in all requests via Axios interceptors and MCP client headers.
-- **Zero Direct Database Access for AI Agents:** External agents interact strictly via authenticated MCP tool calls routing through FastAPI business logic.
+- **Verified Microsoft Entra ID Tokens:** `POST /auth/login/entra` cryptographically verifies the incoming token's signature, issuer, and audience against Microsoft's real JWKS (`backend/app/api/routes/auth.py`) - identity is derived only from the verified token, never from client-supplied fields.
+- **Zero Direct Database Access for AI Agents:** External agents interact strictly via authenticated MCP tool calls routing through FastAPI business logic; every MCP action is tied to a real employee's own token via `authenticate_employee`, not a shared default account.
 - **Stripe Webhook Signatures:** Verified using `stripe.Webhook.construct_event`.
 - **Microsoft Graph Avatar Caching:** Cached in local state to minimize roundtrips while preserving real-time synchronization.
 

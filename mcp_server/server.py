@@ -2,17 +2,48 @@
 Provides a Model Context Protocol (MCP) interface for external AI assistants
 (WorkPilot, Intuceo.Ai, Claude Desktop, AGY IDE) to interact securely with the
 Seat Booking user portal APIs.
+
+Call `authenticate_employee(email, password)` first to obtain a real per-employee
+`auth_token`, then pass it to every other tool. A shared "default identity"
+fallback exists only for local testing (see `MCP_ALLOW_DEFAULT_IDENTITY` in
+config.py) and is disabled by default.
+
+Transport is selected via `MCP_TRANSPORT` (config.py): `stdio` (default) for a
+locally-spawned client such as Claude Desktop, or `streamable-http` to run this
+as a standalone network service another application can connect to.
 """
 
 from typing import List, Dict, Any, Optional
 from mcp.server.fastmcp import FastMCP
 from mcp_server.client import api_client
+from mcp_server.config import settings
 
-# Initialize FastMCP Server
+# Initialize FastMCP Server. host/port only take effect for the streamable-http
+# transport (see `if __name__ == "__main__":` below) - stdio ignores them.
 mcp = FastMCP(
     name="SeatBookingPortal",
-    instructions="MCP Server providing secure access to the Seat Booking Application user portal. Allows searching and booking desks, meeting rooms, viewing reservations, and checking wallet credits without direct database access."
+    instructions="MCP Server providing secure access to the Seat Booking Application user portal. Allows searching and booking desks, meeting rooms, viewing reservations, and checking wallet credits without direct database access. Call authenticate_employee first to obtain a real employee's auth_token.",
+    host=settings.MCP_HOST,
+    port=settings.MCP_PORT,
 )
+
+@mcp.tool()
+async def authenticate_employee(email: str, password: str) -> Dict[str, Any]:
+    """Authenticate as a real employee using their own Seat Booking email and password.
+    Call this FIRST, before any tool that books, cancels, or reads personal data
+    (bookings, wallet, visitors) - those tools act as whichever employee's
+    `auth_token` you pass them, so obtain a real one here rather than guessing.
+
+    Args:
+        email: The employee's Seat Booking account email.
+        password: The employee's Seat Booking account password.
+
+    Returns:
+        Dictionary with `auth_token` (pass this as `auth_token` to every other tool
+        for this employee) and `employee_email`.
+    """
+    token = await api_client.login(email, password)
+    return {"auth_token": token, "employee_email": email}
 
 @mcp.tool()
 async def get_locations() -> List[Dict[str, Any]]:
@@ -210,8 +241,8 @@ async def book_seat(
         location_id: UUID of the location.
         booking_date: Booking date in 'YYYY-MM-DD' format.
         time_slot_id: UUID of the time slot.
-        employee_email: Optional email of the requesting employee (defaults to configured employee).
-        auth_token: Optional JWT bearer token of the employee.
+        employee_email: Optional email of the requesting employee (must already be authenticated this session via authenticate_employee).
+        auth_token: The employee's bearer token from authenticate_employee - required unless a default identity is explicitly enabled for local testing.
 
     Returns:
         Booking confirmation details including booking ID, confirmed status, amount charged, and reservation summary.
@@ -569,5 +600,8 @@ async def get_my_wallet_balance(
     return await api_client.get_wallet_balance(employee_email=employee_email, auth_token=auth_token)
 
 if __name__ == "__main__":
-    # Run the MCP server over standard input/output (STDIO transport)
-    mcp.run(transport="stdio")
+    # "stdio" (default): spawned as a local subprocess by a client like Claude
+    # Desktop - see mcp_config.json. "streamable-http": runs as a standalone
+    # network service on MCP_HOST:MCP_PORT for a separate application
+    # (WorkPilot/Intuceo.Ai) to connect to over HTTP.
+    mcp.run(transport=settings.MCP_TRANSPORT)

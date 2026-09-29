@@ -1,0 +1,82 @@
+# Runs the whole Seat Booking stack: Postgres, the FastAPI backend, the React
+# frontend (built + served via nginx), and the MCP server (streamable-http).
+# All services share the repo-root `.env` (see `.env.example`); a few keys are
+# overridden per-service below because they mean something different inside
+# the compose network than they do for a bare-metal/local-dev run (e.g.
+# DB_HOST=localhost locally vs DB_HOST=postgres here).
+#
+# Usage:
+#   docker compose up --build
+#   docker compose exec backend alembic upgrade head   # already runs automatically on start, this is only for a manual re-run
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-seat_booking}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-seat_booking}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Inside the compose network, Postgres is reachable by service name, not
+      # "localhost" (whatever the root .env says for local/bare-metal use).
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      ENVIRONMENT: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Vite bakes these into the JS bundle at build time - see frontend/Dockerfile.
+        # This assumes the browser reaches the backend via the host's mapped
+        # port (http://localhost:8000), which is the common single-machine
+        # deployment case; adjust for a real multi-host production deploy.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+        VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY:-}
+        VITE_ENTRA_CLIENT_ID: ${VITE_ENTRA_CLIENT_ID:-}
+        VITE_ENTRA_TENANT_ID: ${VITE_ENTRA_TENANT_ID:-}
+        VITE_ENTRA_REDIRECT_URI: ${VITE_ENTRA_REDIRECT_URI:-http://localhost:3000}
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  mcp_server:
+    build:
+      context: .
+      dockerfile: mcp_server/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Reach the backend by its service name inside the compose network.
+      SEAT_BOOKING_API_URL: http://backend:8000/api
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8100"
+    ports:
+      - "8100:8100"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

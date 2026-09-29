@@ -8,9 +8,7 @@
       ],
       "cwd": ".",
       "env": {
-        "SEAT_BOOKING_API_URL": "http://localhost:8000/api",
-        "SEAT_BOOKING_USER_EMAIL": "sdkurupudi@intuceo.com",
-        "SEAT_BOOKING_USER_PASSWORD": "user123"
+        "SEAT_BOOKING_API_URL": "http://localhost:8000/api"
       }
     }
   }

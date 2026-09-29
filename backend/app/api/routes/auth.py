@@ -3,7 +3,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import timedelta
-import msal
+import jwt as pyjwt
+from jwt import PyJWKClient
 
 from app.db.database import get_db
 from app.models.user import User, AuthProvider
@@ -77,25 +78,61 @@ async def login(
 
 from sqlalchemy import select, func, or_
 
+# Cached per tenant: PyJWKClient fetches Microsoft's signing keys and handles
+# its own key-rotation caching internally, so one client per tenant is reused
+# across requests rather than re-fetching JWKS on every login.
+_entra_jwks_clients: dict[str, PyJWKClient] = {}
+
+def _verify_entra_token(token: str) -> dict:
+    """Cryptographically verify a Microsoft Entra ID token (signature, issuer,
+    audience) against the configured tenant's real JWKS - NEVER trust a decoded-
+    but-unverified token for identity. Returns the verified claims or raises
+    HTTPException(401)."""
+    if not settings.ENTRA_TENANT_ID or not settings.ENTRA_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Microsoft Entra ID sign-in is not configured on this server.")
+
+    tenant_id = settings.ENTRA_TENANT_ID
+    if tenant_id not in _entra_jwks_clients:
+        _entra_jwks_clients[tenant_id] = PyJWKClient(
+            f"https://login.microsoftonline.com/{tenant_id}/discovery/v2.0/keys"
+        )
+
+    try:
+        signing_key = _entra_jwks_clients[tenant_id].get_signing_key_from_jwt(token)
+        return pyjwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=settings.ENTRA_CLIENT_ID,
+            issuer=[
+                f"https://login.microsoftonline.com/{tenant_id}/v2.0",
+                f"https://sts.windows.net/{tenant_id}/",
+            ],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Invalid or unverifiable Microsoft identity token: {e}")
+
 @router.post("/login/entra", response_model=Token)
 async def login_entra(
     entra_in: EntraLogin,
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        claims = {}
-        try:
-            import jwt as pyjwt
-            claims = pyjwt.decode(entra_in.token, options={"verify_signature": False})
-        except Exception:
-            pass
+        # Identity (email/oid) MUST come only from the cryptographically verified
+        # token - never from the client-supplied `entra_in.email`/`entra_in.oid`
+        # fields, or any caller could impersonate any user by simply naming them
+        # in the request body. `entra_in.name` is used only as a cosmetic
+        # display-name fallback below, which carries no security weight.
+        claims = _verify_entra_token(entra_in.token)
 
-        email = entra_in.email or claims.get("preferred_username") or claims.get("email") or claims.get("upn") or claims.get("unique_name")
-        name = entra_in.name or claims.get("name") or (f"{claims.get('given_name', '')} {claims.get('family_name', '')}".strip() if (claims.get('given_name') or claims.get('family_name')) else None)
-        oid = entra_in.oid or claims.get("oid") or claims.get("sub")
+        email = claims.get("preferred_username") or claims.get("email") or claims.get("upn") or claims.get("unique_name")
+        name = claims.get("name") or (f"{claims.get('given_name', '')} {claims.get('family_name', '')}".strip() if (claims.get('given_name') or claims.get('family_name')) else None) or entra_in.name
+        oid = claims.get("oid") or claims.get("sub")
 
         if not email and not oid:
-            raise HTTPException(status_code=400, detail="Unable to extract user identity from Microsoft token or Graph API")
+            raise HTTPException(status_code=400, detail="Unable to extract user identity from the verified Microsoft token")
 
         # Standardize email
         email_clean = email.strip().lower() if email else f"{oid}@azure.intuceo.com"

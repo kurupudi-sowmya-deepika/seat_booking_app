@@ -10,11 +10,14 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Set up CORS dynamically
+# Set up CORS dynamically. The localhost fallbacks are a dev convenience only -
+# appending them unconditionally would let any localhost page make credentialed
+# requests against a production deployment, so they're gated behind ENVIRONMENT.
 origins = [origin.strip() for origin in settings.FRONTEND_URL.split(",") if origin.strip()]
-for default_origin in ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"]:
-    if default_origin not in origins:
-        origins.append(default_origin)
+if settings.ENVIRONMENT != "production":
+    for default_origin in ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"]:
+        if default_origin not in origins:
+            origins.append(default_origin)
 
 app.add_middleware(
     CORSMiddleware,

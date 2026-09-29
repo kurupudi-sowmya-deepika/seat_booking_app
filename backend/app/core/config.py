@@ -4,7 +4,11 @@ from typing import Optional
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Seat Booking API"
     API_V1_STR: str = "/api"
-    
+
+    # "development" (default) or "production". Only used to gate dev-only
+    # conveniences (see main.py's CORS setup) - not a general feature flag.
+    ENVIRONMENT: str = "development"
+
     # Database
     DB_USER: str
     DB_PASSWORD: str
@@ -27,7 +31,10 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = ""
     # Wallet & Credits
     DEFAULT_INITIAL_WALLET_BALANCE: float = 50000.0
-    DEMO_WALLET_MODE: bool = True
+    # Lets a logged-in user top up their own wallet with no real Stripe charge -
+    # a local-demo convenience only. Defaults off; set true explicitly (e.g. in
+    # a local .env) for demos, never in production.
+    DEMO_WALLET_MODE: bool = False
     DEMO_INITIAL_CREDIT_EMAIL: str = "sdkurupudi@intuceo.com"
     DEMO_INITIAL_CREDIT_AMOUNT: float = 50000.0
     
