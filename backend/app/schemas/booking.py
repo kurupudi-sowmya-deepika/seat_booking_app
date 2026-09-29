@@ -49,7 +49,9 @@ class BookingResponse(BaseModel):
     user_id: UUID
     booking_type: BookingType
     location_id: UUID
-    branch_id: UUID
+    # Nullable in the DB (migration 00002 added bookings.branch_id with nullable=True, so older
+    # bookings have none) - a strict UUID here made GET /bookings/my return 500 for any such user.
+    branch_id: Optional[UUID] = None
     seat_id: Optional[UUID] = None
     day_pass_id: Optional[UUID] = None
     room_id: Optional[UUID] = None
