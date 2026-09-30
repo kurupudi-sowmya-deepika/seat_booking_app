@@ -6,30 +6,30 @@ The **Seat Booking MCP Server** exposes the user-portal capabilities of the Seat
 
 ## 🌟 Features & Exposed Tools
 
-| MCP Tool | Description |
-| :--- | :--- |
-| `authenticate_employee` | Authenticates a real employee (email + password) and returns their `auth_token` - call this first |
-| `get_current_user` | Returns the acting employee's id, name, email and role (confirms whose identity is in use) |
-| `get_users` | Searches active colleagues by name/email (id, name, email only; min 2 chars, max 10 results) |
-| `get_locations` | Lists active global hubs (Jacksonville, McLean, London, Bangalore, Hyderabad) |
-| `get_branches` | Retrieves campus branches and offices for a given location |
-| `get_floors_and_rooms` | Retrieves floors, workspaces, meeting rooms, and conference halls |
-| `get_time_slots` | Fetches active corporate time slots |
-| `check_seat_availability` | Checks available & occupied desks for a room, date, and time slot |
-| `search_available_seats` | Searches and filters available desks across campus locations |
-| `book_seat` | Reserves a workstation, debits wallet balance, and creates database record |
-| `get_my_bookings` | Retrieves all active, upcoming, and past reservations for an employee |
-| `cancel_my_booking` | Cancels a booking and automatically processes eligible refunds |
-| `check_meeting_room_availability` | Checks availability for smart meeting rooms & conference halls |
-| `book_meeting_room` | Reserves a meeting room or conference hall |
-| `get_day_passes` | Retrieves Day Pass packages and included amenities |
-| `check_day_pass_availability` | Checks day pass availability and capacity for a campus |
-| `book_day_pass` | Books a full-day flex pass for individual or multi-user groups |
-| `pre_register_visitor` | Pre-registers external guests and issues digital visitor passes |
-| `get_my_visitors` | Retrieves active and past guest passes hosted by an employee |
-| `check_in_visitor` | Marks a visitor as checked-in on-site at the reception desk |
-| `check_out_visitor` | Marks a visitor as checked-out upon departure |
-| `get_my_wallet_balance` | Retrieves current prepaid wallet credits |
+| MCP Tool                          | Description                                                                                       |
+| :-------------------------------- | :------------------------------------------------------------------------------------------------ |
+| `authenticate_employee`           | Authenticates a real employee (email + password) and returns their `auth_token` - call this first |
+| `get_current_user`                | Returns the acting employee's id, name, email and role (confirms whose identity is in use)        |
+| `get_users`                       | Searches active colleagues by name/email (id, name, email only; min 2 chars, max 10 results)      |
+| `get_locations`                   | Lists active global hubs (Jacksonville, London, Bangalore, Hyderabad)                             |
+| `get_branches`                    | Retrieves campus branches and offices for a given location                                        |
+| `get_floors_and_rooms`            | Retrieves floors, workspaces, meeting rooms, and conference halls                                 |
+| `get_time_slots`                  | Fetches active corporate time slots                                                               |
+| `check_seat_availability`         | Checks available & occupied desks for a room, date, and time slot                                 |
+| `search_available_seats`          | Searches and filters available desks across campus locations                                      |
+| `book_seat`                       | Reserves a workstation, debits wallet balance, and creates database record                        |
+| `get_my_bookings`                 | Retrieves all active, upcoming, and past reservations for an employee                             |
+| `cancel_my_booking`               | Cancels a booking and automatically processes eligible refunds                                    |
+| `check_meeting_room_availability` | Checks availability for smart meeting rooms & conference halls                                    |
+| `book_meeting_room`               | Reserves a meeting room or conference hall                                                        |
+| `get_day_passes`                  | Retrieves Day Pass packages and included amenities                                                |
+| `check_day_pass_availability`     | Checks day pass availability and capacity for a campus                                            |
+| `book_day_pass`                   | Books a full-day flex pass for individual or multi-user groups                                    |
+| `pre_register_visitor`            | Pre-registers external guests and issues digital visitor passes                                   |
+| `get_my_visitors`                 | Retrieves active and past guest passes hosted by an employee                                      |
+| `check_in_visitor`                | Marks a visitor as checked-in on-site at the reception desk                                       |
+| `check_out_visitor`               | Marks a visitor as checked-out upon departure                                                     |
+| `get_my_wallet_balance`           | Retrieves current prepaid wallet credits                                                          |
 
 ---
 
@@ -50,7 +50,7 @@ it, and never commit real credentials to this repo's tracked config files.
 ### Trusted-caller mode (used by WorkPilot)
 
 An application such as WorkPilot already knows who its signed-in employee is but does not hold their
-Seat Booking password. For that case the MCP server and the Seat API support a *trusted caller*:
+Seat Booking password. For that case the MCP server and the Seat API support a _trusted caller_:
 
 ```
 client --(Authorization: Bearer MCP_AUTH_TOKEN, tool arg employee_email)--> MCP server
@@ -105,6 +105,7 @@ SEAT_BOOKING_AUTH_TOKEN=
 ## 🚀 Connection Setup for External AI Agents
 
 ### 1. Claude Desktop Configuration (stdio, local)
+
 Add the following to your `claude_desktop_config.json` (see `mcp_config.json` in
 the repo root for a ready-to-copy version):
 
@@ -122,10 +123,12 @@ the repo root for a ready-to-copy version):
   }
 }
 ```
+
 Then, in the chat, ask the assistant to call `authenticate_employee` with your
 own email/password before booking anything on your behalf.
 
 ### 2. WorkPilot / Intuceo.Ai Configuration (streamable-http, networked)
+
 For a separate running application to reach this server over the network
 (rather than spawning it as a local subprocess), run the MCP server as its own
 service with `MCP_TRANSPORT=streamable-http` (see `mcp_server/Dockerfile` /
@@ -142,6 +145,7 @@ its HTTP endpoint:
 
 Flow for the external application, matching
 `External AI Agent -> MCP Client -> Seat Booking MCP Server -> Existing FastAPI Services -> PostgreSQL`:
+
 1. Connect the MCP client to the URL above and list tools.
 2. Call `authenticate_employee(email, password)` with the real employee's own
    credentials; store the returned `auth_token`.

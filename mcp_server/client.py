@@ -139,7 +139,7 @@ class SeatBookingAPIClient:
 
     # User Portal API Functions
     async def get_locations(self) -> List[Dict[str, Any]]:
-        """Retrieve all active corporate locations (Jacksonville, McLean, London, Bangalore, Hyderabad, etc.)."""
+        """Retrieve all active corporate locations (Jacksonville, London, Bangalore, Hyderabad, etc.)."""
         return await self._request("GET", "/locations/", requires_auth=False)
 
     async def get_branches(self, location_id: Optional[str] = None) -> List[Dict[str, Any]]:

@@ -80,7 +80,7 @@ async def get_users(search: str, employee_email: Optional[str] = None, auth_toke
 
 @mcp.tool()
 async def get_locations() -> List[Dict[str, Any]]:
-    """Retrieve all corporate office locations (e.g. Jacksonville, McLean, London, Bangalore, Hyderabad).
+    """Retrieve all corporate office locations (e.g. Jacksonville, London, Bangalore, Hyderabad).
 
     Returns:
         List of locations with their ID, name, city, state, country, and address.

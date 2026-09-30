@@ -115,16 +115,7 @@ async def seed_db():
                 "latitude": 30.3322,
                 "longitude": -81.6557
             },
-            {
-                "name": "Intuceo Inc.",
-                "address": "1765 Greensboro Station Place, Suite 900, McLean, VA 22102, USA",
-                "city": "McLean",
-                "state": "Virginia",
-                "country": "USA",
-                "postal_code": "22102",
-                "latitude": 38.9339,
-                "longitude": -77.1773
-            },
+            
             {
                 "name": "Intuceo UK",
                 "address": "London, United Kingdom",
@@ -181,7 +172,6 @@ async def seed_db():
         # 5. Branches
         branches_data = [
             (locations["Jacksonville"].id, "Headquarters", "4110 Southpoint Blvd, Suite 124, Jacksonville, FL 32216, USA", "Global Headquarters"),
-            (locations["McLean"].id, "Washington D.C. Area Office", "1765 Greensboro Station Place, Suite 900, McLean, VA 22102, USA", "Washington D.C. Area Office"),
             (locations["London"].id, "Europe Office", "London, United Kingdom", "Europe Regional Office"),
             (locations["Bangalore"].id, "Development Center", "Bangalore, Karnataka, India", "India Development Center"),
             (locations["Hyderabad"].id, "Development Center", "Hyderabad, Telangana, India", "India Development Center")

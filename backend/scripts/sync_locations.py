@@ -28,18 +28,7 @@ async def sync_locations():
                 "branch_name": "Headquarters",
                 "branch_desc": "Global Corporate Headquarters"
             },
-            {
-                "city": "McLean",
-                "name": "Intuceo Inc.",
-                "address": "1765 Greensboro Station Place, Suite 900, McLean, VA 22102, USA",
-                "state": "Virginia",
-                "country": "USA",
-                "postal_code": "22102",
-                "latitude": 38.9339,
-                "longitude": -77.1773,
-                "branch_name": "Washington D.C. Area Office",
-                "branch_desc": "Washington D.C. Area Office"
-            },
+            
             {
                 "city": "London",
                 "name": "Intuceo UK",

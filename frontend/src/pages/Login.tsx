@@ -124,7 +124,7 @@ const Login: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white">5 Global Corporate Locations</h4>
-                  <p className="text-[11px] text-slate-400">Jacksonville, McLean, London, Bangalore & Hyderabad</p>
+                  <p className="text-[11px] text-slate-400">Jacksonville, London, Bangalore & Hyderabad</p>
                 </div>
               </div>
 
