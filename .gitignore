@@ -46,6 +46,7 @@ htmlcov/
 .idea/
 .agents/
 .gemini/
+.claude/
 *.suo
 *.ntvs*
 *.njsproj
@@ -67,7 +68,16 @@ tmp/
 temp/
 scratch/
 
-# AI Assistant Instructions
+# AI Assistant Instructions (local-dev only, not needed in CI/CD)
 CLAUDE.md
 claude.md
+
+# Design & planning docs (not needed for deployment or CI)
+design.md
+SETUP.md
+
+# Local convenience scripts (not needed in Docker / production)
+setup.bat
+setup.sh
+run_tests.bat
 
