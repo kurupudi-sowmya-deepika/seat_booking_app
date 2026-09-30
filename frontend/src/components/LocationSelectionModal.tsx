@@ -44,7 +44,7 @@ export const LocationSelectionModal: React.FC = () => {
               <div className="w-16 h-16 bg-gradient-to-br from-[#007bc0] to-[#0099e6] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                 <Sparkles size={32} className="text-white" />
               </div>
-              <h2 className="text-[28px] font-black text-gray-900 mb-2">Welcome to Seat Booking App</h2>
+              <h2 className="text-[28px] font-black text-gray-900 mb-2">Welcome to SpaceHub App</h2>
               <p className="text-[15px] text-gray-500">Select your location and office to continue.</p>
             </div>
 

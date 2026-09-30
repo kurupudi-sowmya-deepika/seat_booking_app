@@ -1,7 +1,7 @@
-"""Seat Booking MCP Server
+"""SpaceHub MCP Server
 Provides a Model Context Protocol (MCP) interface for external AI assistants
 (WorkPilot, Intuceo.Ai, Claude Desktop, AGY IDE) to interact securely with the
-Seat Booking user portal APIs.
+SpaceHub user portal APIs.
 
 Call `authenticate_employee(email, password)` first to obtain a real per-employee
 `auth_token`, then pass it to every other tool. A shared "default identity"
@@ -26,21 +26,29 @@ from mcp_server.config import settings
 # transport (see `if __name__ == "__main__":` below) - stdio ignores them.
 mcp = FastMCP(
     name="SeatBookingPortal",
-    instructions="MCP Server providing secure access to the Seat Booking Application user portal. Allows searching and booking desks, meeting rooms, viewing reservations, and checking wallet credits without direct database access. Call authenticate_employee first to obtain a real employee's auth_token.",
+    instructions="MCP Server providing secure access to the SpaceHub Application user portal. Allows searching and booking desks, meeting rooms, viewing reservations, and checking wallet credits without direct database access. Call authenticate_employee first to obtain a real employee's auth_token.",
     host=settings.MCP_HOST,
     port=settings.MCP_PORT,
 )
 
+SEAT_STATUS_AVAILABLE = "AVAILABLE"
+
+
+def _seat_is_available(seat: Dict[str, Any]) -> bool:
+    """`GET /bookings/availability/seat` reports `status` ("AVAILABLE" | "BOOKED"), not a boolean flag."""
+    return str(seat.get("status", "")).upper() == SEAT_STATUS_AVAILABLE
+
+
 @mcp.tool()
 async def authenticate_employee(email: str, password: str) -> Dict[str, Any]:
-    """Authenticate as a real employee using their own Seat Booking email and password.
+    """Authenticate as a real employee using their own SpaceHub email and password.
     Call this FIRST, before any tool that books, cancels, or reads personal data
     (bookings, wallet, visitors) - those tools act as whichever employee's
     `auth_token` you pass them, so obtain a real one here rather than guessing.
 
     Args:
-        email: The employee's Seat Booking account email.
-        password: The employee's Seat Booking account password.
+        email: The employee's SpaceHub account email.
+        password: The employee's SpaceHub account password.
 
     Returns:
         Dictionary with `auth_token` (pass this as `auth_token` to every other tool
@@ -162,8 +170,8 @@ async def check_seat_availability(
         booking_date=booking_date,
         time_slot_id=time_slot_id
     )
-    available_seats = [s for s in seats if s.get("is_available", True)]
-    occupied_seats = [s for s in seats if not s.get("is_available", True)]
+    available_seats = [s for s in seats if _seat_is_available(s)]
+    occupied_seats = [s for s in seats if not _seat_is_available(s)]
 
     return {
         "room_id": room_id,
@@ -229,7 +237,7 @@ async def search_available_seats(
         for rm in rooms:
             try:
                 seats = await api_client.check_seat_availability(room_id=rm["id"], booking_date=booking_date, time_slot_id=slot_id)
-                available = [s for s in seats if s.get("is_available", True)]
+                available = [s for s in seats if _seat_is_available(s)]
                 if seat_type:
                     available = [s for s in available if s.get("seat_type") == seat_type]
 

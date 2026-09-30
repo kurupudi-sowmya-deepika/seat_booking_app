@@ -7,7 +7,11 @@ export interface DataTableColumn<T> {
   header: string;
   render?: (row: T) => React.ReactNode;
   className?: string;
+  /** Shows a clickable sort header; requires `onSort` on the table. */
+  sortable?: boolean;
 }
+
+export type SortDirection = 'asc' | 'desc';
 
 interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
@@ -16,6 +20,9 @@ interface DataTableProps<T> {
   loading?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  sortKey?: string;
+  sortDirection?: SortDirection;
+  onSort?: (key: string) => void;
 }
 
 export function DataTable<T>({
@@ -25,6 +32,9 @@ export function DataTable<T>({
   loading,
   emptyTitle = 'No records found',
   emptyDescription,
+  sortKey,
+  sortDirection,
+  onSort,
 }: DataTableProps<T>) {
   if (loading) return <LoadingState />;
   if (!rows.length) return <EmptyState title={emptyTitle} description={emptyDescription} />;
@@ -34,14 +44,32 @@ export function DataTable<T>({
       <table className="w-full min-w-[720px] border-collapse text-left">
         <thead className="sticky top-0 z-10">
           <tr className="bg-[#007bc0] text-white">
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className={`px-4 py-3 text-[13px] font-bold uppercase tracking-wide ${col.className || ''}`}
-              >
-                {col.header}
-              </th>
-            ))}
+            {columns.map((col) => {
+              const isSorted = sortKey === col.key;
+              const canSort = Boolean(col.sortable && onSort);
+              return (
+                <th
+                  key={col.key}
+                  aria-sort={isSorted ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined}
+                  className={`px-4 py-3 text-[13px] font-bold uppercase tracking-wide ${col.className || ''}`}
+                >
+                  {canSort ? (
+                    <button
+                      type="button"
+                      onClick={() => onSort?.(col.key)}
+                      className="inline-flex items-center gap-1 uppercase font-bold tracking-wide hover:underline"
+                    >
+                      {col.header}
+                      <span aria-hidden="true" className={isSorted ? '' : 'opacity-40'}>
+                        {isSorted ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+                      </span>
+                    </button>
+                  ) : (
+                    col.header
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

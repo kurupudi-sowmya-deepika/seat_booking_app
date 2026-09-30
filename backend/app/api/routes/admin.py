@@ -88,7 +88,7 @@ async def get_admin_dashboard_stats(
     total_wallet_credits = float(wallet_credits_res.scalar_one() or 0.0)
     
     # 4. Occupancy Rate Estimate
-    # active seat bookings today vs total seats
+    # active SpaceHubs today vs total seats
     today_seat_bookings = (await db.execute(
         select(func.count(Booking.id)).where(
             and_(Booking.booking_date == today, Booking.seat_id.isnot(None), Booking.status == BookingStatus.CONFIRMED)

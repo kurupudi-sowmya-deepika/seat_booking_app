@@ -98,10 +98,10 @@ const Login: React.FC = () => {
             {/* Header Brand */}
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center p-2 shadow-inner">
-                <img src="/favicon.png" alt="Seat Booking App" className="w-full h-full object-contain" />
+                <img src="/favicon.png" alt="SpaceHub App" className="w-full h-full object-contain" />
               </div>
               <div>
-                <h2 className="text-lg font-bold tracking-tight text-white leading-tight">Seat Booking App</h2>
+                <h2 className="text-lg font-bold tracking-tight text-white leading-tight">SpaceHub App</h2>
                 <p className="text-[11px] font-medium text-slate-400">Enterprise Workspace Management</p>
               </div>
             </div>

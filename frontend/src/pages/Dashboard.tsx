@@ -82,7 +82,7 @@ export const Dashboard: React.FC = () => {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-bold uppercase tracking-wider backdrop-blur-md">
               <Sparkles size={14} className="text-amber-300" />
-              <span>Seat Booking App</span>
+              <span>SpaceHub App</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
               Hello, {user?.name || 'Workspace Member'} 👋

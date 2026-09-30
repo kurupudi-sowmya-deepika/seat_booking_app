@@ -93,8 +93,8 @@ async def run_tests():
         initial_balance = wallet_res.json()["balance"]
         print(f"[OK] Current User Wallet Balance: INR {initial_balance}")
 
-        # 6. Test Seat Booking Creation
-        print("\n[6] Testing Seat Booking Creation with Wallet Deduction...")
+        # 6. Test SpaceHub Creation
+        print("\n[6] Testing SpaceHub Creation with Wallet Deduction...")
         test_seat = seats[0]
         test_slot = slots[0]
         target_branch = branches[0]

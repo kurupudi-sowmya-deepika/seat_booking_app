@@ -1,4 +1,4 @@
-# Production image for the Seat Booking React/Vite frontend.
+# Production image for the SpaceHub React/Vite frontend.
 # Build context must be the frontend/ directory (see docker-compose.yml).
 #
 # IMPORTANT: Vite bakes every VITE_* variable into the built JS at BUILD time,

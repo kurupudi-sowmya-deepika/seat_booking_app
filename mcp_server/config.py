@@ -14,7 +14,7 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 class MCPSettings(BaseSettings):
-    # Base URL for Seat Booking FastAPI application
+    # Base URL for SpaceHub FastAPI application
     SEAT_BOOKING_API_URL: str = os.getenv("SEAT_BOOKING_API_URL", os.getenv("VITE_API_URL", "http://localhost:8000/api"))
 
     # Transport this server listens on: "stdio" (spawned locally as a subprocess,
@@ -28,7 +28,7 @@ class MCPSettings(BaseSettings):
     # streamable-http. REQUIRED whenever WORKPILOT_SERVICE_TOKEN is set - see server.py.
     MCP_AUTH_TOKEN: str = os.getenv("MCP_AUTH_TOKEN", "")
 
-    # Shared secret with the Seat Booking backend (its WORKPILOT_SERVICE_TOKEN). When set, tools
+    # Shared secret with the SpaceHub backend (its WORKPILOT_SERVICE_TOKEN). When set, tools
     # that receive `employee_email` act as that EXISTING employee via the backend's trusted-caller
     # path (X-Service-Token + X-On-Behalf-Of-Email) instead of needing that employee's password.
     WORKPILOT_SERVICE_TOKEN: str = os.getenv("WORKPILOT_SERVICE_TOKEN", "")

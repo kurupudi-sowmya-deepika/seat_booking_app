@@ -11,7 +11,7 @@ load_dotenv(backend_env)
 load_dotenv(root_env)
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Seat Booking API"
+    PROJECT_NAME: str = "SpaceHub API"
     API_V1_STR: str = "/api"
 
     # "development" (default) or "production". Only used to gate dev-only
@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8 # 8 days
     
-    # Trusted service-to-service caller (WorkPilot backend, via the Seat Booking MCP server).
+    # Trusted service-to-service caller (WorkPilot backend, via the SpaceHub MCP server).
     # When set, a request carrying a matching `X-Service-Token` header may act as an EXISTING,
     # ACTIVE user named by `X-On-Behalf-Of-Email`. Empty (default) = feature disabled.
     # Generate with e.g. `openssl rand -hex 32`; it must match the caller's own setting.

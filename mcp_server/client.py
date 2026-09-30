@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 from mcp_server.config import settings
 
 class SeatBookingAPIClient:
-    """Async HTTP client to communicate with the Seat Booking FastAPI backend."""
+    """Async HTTP client to communicate with the SpaceHub FastAPI backend."""
 
     def __init__(self, base_url: Optional[str] = None):
         self.base_url = (base_url or settings.SEAT_BOOKING_API_URL).rstrip("/")
@@ -130,7 +130,7 @@ class SeatBookingAPIClient:
                     detail = error_json.get("detail", str(error_json))
                 except Exception:
                     pass
-                raise RuntimeError(f"Seat Booking API Error ({resp.status_code}): {detail}")
+                raise RuntimeError(f"SpaceHub API Error ({resp.status_code}): {detail}")
 
             if resp.status_code == 204 or not resp.content:
                 return {"status": "success"}

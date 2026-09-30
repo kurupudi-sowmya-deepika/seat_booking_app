@@ -26,8 +26,8 @@ interface ChatbotWidgetProps {
 const VARIANT_COPY = {
   user: {
     endpoint: '/chatbot/message',
-    title: 'Seat Booking App Assistant',
-    greeting: "👋 Hi! I'm the Seat Booking App assistant. I can help you search live workspace availability, book seats, reserve meeting rooms, buy day passes, and manage your credits.",
+    title: 'SpaceHub App Assistant',
+    greeting: "👋 Hi! I'm the SpaceHub App assistant. I can help you search live workspace availability, book seats, reserve meeting rooms, buy day passes, and manage your credits.",
     actions: ['Book a Seat', 'Book Meeting Room', 'Book Conference Room', 'Day Pass', 'Check Availability', 'My Bookings', 'Cancel Booking'],
   },
   admin: {

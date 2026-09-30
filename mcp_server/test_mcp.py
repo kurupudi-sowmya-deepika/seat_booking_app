@@ -1,10 +1,10 @@
-"""End-to-end test for the Seat Booking MCP Server.
+"""End-to-end test for the SpaceHub MCP Server.
 
 Exercises the real, intended flow for an external AI agent:
     authenticate_employee -> browse -> check availability -> book -> cancel
 against a REAL running backend (SEAT_BOOKING_API_URL, default
 http://localhost:8000/api) and a real seeded Postgres database - not mocked.
-Also cross-checks a seat booking made through MCP against the normal REST
+Also cross-checks a SpaceHub made through MCP against the normal REST
 `/bookings/my` endpoint, to prove MCP bookings are stored in the same
 database and visible in the User Portal, not a separate/parallel path.
 
@@ -44,7 +44,7 @@ TEST_PASSWORD = "user123"
 
 async def main():
     print("=" * 65)
-    print(" >>> TESTING SEAT BOOKING MCP SERVER (end-to-end) <<<")
+    print(" >>> TESTING SpaceHub MCP SERVER (end-to-end) <<<")
     print("=" * 65)
 
     print("\n[1/7] Tool registration...")
@@ -74,8 +74,8 @@ async def main():
     wallet = await get_my_wallet_balance(auth_token=token)
     print(f"      SUCCESS: {len(locs)} locations, {len(branches)} branches, {len(rooms)} workspace rooms, {len(slots)} time slots")
     print(f"      SUCCESS: wallet balance {wallet.get('currency', 'INR')} {wallet.get('balance', 0):,.2f}")
-    assert rooms, "Need at least one WORKSPACE room to test seat booking"
-    assert slots, "Need at least one time slot to test seat booking"
+    assert rooms, "Need at least one WORKSPACE room to test SpaceHub"
+    assert slots, "Need at least one time slot to test SpaceHub"
 
     print("\n[5/7] Booking a real seat through MCP...")
     booking_date = (date.today() + timedelta(days=14)).isoformat()

@@ -453,7 +453,7 @@ async def create_booking(
     desc = ""
     if booking_in.booking_type == BookingType.SEAT:
         if not booking_in.seat_id:
-            raise HTTPException(status_code=400, detail="seat_id required for SEAT booking")
+            raise HTTPException(status_code=400, detail="seat_id required for SpaceHub")
             
         condition = and_(
             Booking.seat_id == booking_in.seat_id,
@@ -469,7 +469,7 @@ async def create_booking(
                 Booking.end_time > booking_in.start_time
             )
         else:
-            raise HTTPException(status_code=400, detail="Time slot or start/end time required for SEAT booking")
+            raise HTTPException(status_code=400, detail="Time slot or start/end time required for SpaceHub")
             
         overlap = (await db.execute(select(Booking).where(condition))).scalars().first()
         if overlap:
@@ -478,7 +478,7 @@ async def create_booking(
         seat = (await db.execute(select(Seat).where(Seat.id == booking_in.seat_id))).scalar_one_or_none()
         if not seat: raise HTTPException(status_code=404, detail="Seat not found")
         price = Decimal(str(seat.price))
-        desc = f"Seat Booking - Desk {seat.seat_number}"
+        desc = f"SpaceHub - Desk {seat.seat_number}"
         
     elif booking_in.booking_type == BookingType.DAY_PASS:
         if not booking_in.day_pass_id:
@@ -891,16 +891,16 @@ async def get_booking_ical(
     start_dt = datetime.combine(booking.booking_date, st)
     end_dt = datetime.combine(booking.booking_date, et)
 
-    summary = f"Seat Booking App: {booking.booking_type}"
-    if booking.seat: summary = f"Desk {booking.seat.seat_number} - Seat Booking App"
-    elif booking.room: summary = f"{booking.room.name} - Seat Booking App"
+    summary = f"SpaceHub App: {booking.booking_type}"
+    if booking.seat: summary = f"Desk {booking.seat.seat_number} - SpaceHub App"
+    elif booking.room: summary = f"{booking.room.name} - SpaceHub App"
 
     location_str = f"{booking.branch.name if booking.branch else 'Workspace'}, {booking.location.city if booking.location else ''}"
 
     ics_content = (
         "BEGIN:VCALENDAR\r\n"
         "VERSION:2.0\r\n"
-        "PRODID:-//Seat Booking App//Workspace Booking//EN\r\n"
+        "PRODID:-//SpaceHub App//Workspace Booking//EN\r\n"
         "CALSCALE:GREGORIAN\r\n"
         "METHOD:REQUEST\r\n"
         "BEGIN:VEVENT\r\n"
@@ -909,13 +909,13 @@ async def get_booking_ical(
         f"DTSTART:{start_dt.strftime('%Y%m%dT%H%M%SZ')}\r\n"
         f"DTEND:{end_dt.strftime('%Y%m%dT%H%M%SZ')}\r\n"
         f"SUMMARY:{summary}\r\n"
-        f"DESCRIPTION:Seat Booking App reservation: {summary}. Status: CONFIRMED. Total: INR {booking.amount}\r\n"
+        f"DESCRIPTION:SpaceHub App reservation: {summary}. Status: CONFIRMED. Total: INR {booking.amount}\r\n"
         f"LOCATION:{location_str}\r\n"
         "STATUS:CONFIRMED\r\n"
         "BEGIN:VALARM\r\n"
         "TRIGGER:-PT15M\r\n"
         "ACTION:DISPLAY\r\n"
-        "DESCRIPTION:Seat Booking App reservation starts in 15 minutes\r\n"
+        "DESCRIPTION:SpaceHub App reservation starts in 15 minutes\r\n"
         "END:VALARM\r\n"
         "END:VEVENT\r\n"
         "END:VCALENDAR\r\n"

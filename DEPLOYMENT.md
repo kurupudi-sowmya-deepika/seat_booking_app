@@ -1,6 +1,7 @@
 # 🚀 Production Deployment Guide
 
-This document contains the complete production runbook for deploying the **Seat Booking Application** across various deployment environments:
+This document contains the complete production runbook for deploying the **SpaceHub Application** across various deployment environments:
+
 - **Docker Compose (Full-Stack)**
 - **Cloud Virtual Machines (Linux / Ubuntu / Systemd)**
 - **Cloud Containers & PaaS (AWS ECS / Azure App Service / GCP / Render / Railway)**
@@ -29,12 +30,12 @@ This document contains the complete production runbook for deploying the **Seat 
                 └───────────────────┘                └───────────────────┘
 ```
 
-| Service | Container / Process | Port | Purpose |
-| :--- | :--- | :--- | :--- |
-| **Frontend** | `frontend` (Nginx) | `3000` (or `80`/`443`) | User Portal & Admin Web Application |
-| **Backend** | `backend` (Gunicorn/Uvicorn) | `8000` | REST API, Auth, Stripe, Gemini Chatbot |
-| **MCP Server** | `mcp_server` (FastMCP) | `8100` | Model Context Protocol API for AI Agents |
-| **Database** | `postgres` (PostgreSQL 16) | `5432` | Relational database with asyncpg |
+| Service        | Container / Process          | Port                   | Purpose                                  |
+| :------------- | :--------------------------- | :--------------------- | :--------------------------------------- |
+| **Frontend**   | `frontend` (Nginx)           | `3000` (or `80`/`443`) | User Portal & Admin Web Application      |
+| **Backend**    | `backend` (Gunicorn/Uvicorn) | `8000`                 | REST API, Auth, Stripe, Gemini Chatbot   |
+| **MCP Server** | `mcp_server` (FastMCP)       | `8100`                 | Model Context Protocol API for AI Agents |
+| **Database**   | `postgres` (PostgreSQL 16)   | `5432`                 | Relational database with asyncpg         |
 
 ---
 
@@ -108,6 +109,7 @@ VITE_API_URL=https://api.your-domain.com/api
 ## 3. Option A: Full-Stack Deployment via Docker Compose (Recommended)
 
 ### Step 1: Clone Repository and Setup `.env`
+
 ```bash
 git clone https://github.com/kurupudi-sowmya-deepika/seat_booking_app.git
 cd seat_booking_app
@@ -117,11 +119,13 @@ nano .env
 ```
 
 ### Step 2: Build and Start Containers
+
 ```bash
 docker compose up -d --build
 ```
 
 ### Step 3: Verify Status & Healthchecks
+
 ```bash
 docker compose ps
 docker compose logs -f backend
@@ -130,7 +134,9 @@ docker compose logs -f backend
 > **Note:** The backend container automatically executes `alembic upgrade head` on startup via `backend/entrypoint.sh`.
 
 ### Step 4: (Optional) Seed Initial Master Data
+
 For fresh demo/staging instances:
+
 ```bash
 docker compose exec backend python scripts/seed.py
 ```
@@ -142,6 +148,7 @@ docker compose exec backend python scripts/seed.py
 If hosting the backend and MCP server on an Ubuntu/Debian Linux server:
 
 ### 1. System Packages & Python Setup
+
 ```bash
 sudo apt update && sudo apt install -y python3-venv python3-pip postgresql nginx curl
 git clone https://github.com/kurupudi-sowmya-deepika/seat_booking_app.git /var/www/seat_booking
@@ -154,9 +161,10 @@ pip install -r mcp_server/requirements.txt
 ```
 
 ### 2. Backend Systemd Service (`/etc/systemd/system/seat-booking-backend.service`)
+
 ```ini
 [Unit]
-Description=Seat Booking FastAPI Backend Service
+Description=SpaceHub FastAPI Backend Service
 After=network.target postgresql.service
 
 [Service]
@@ -173,9 +181,10 @@ WantedBy=multi-user.target
 ```
 
 ### 3. MCP Server Systemd Service (`/etc/systemd/system/seat-booking-mcp.service`)
+
 ```ini
 [Unit]
-Description=Seat Booking MCP Server (Streamable HTTP)
+Description=SpaceHub MCP Server (Streamable HTTP)
 After=network.target seat-booking-backend.service
 
 [Service]
@@ -196,6 +205,7 @@ WantedBy=multi-user.target
 ```
 
 ### 4. Enable and Start Services
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now seat-booking-backend
@@ -256,6 +266,7 @@ server {
 ```
 
 Enable SSL via Certbot:
+
 ```bash
 sudo certbot --nginx -d app.yourcompany.com -d api.yourcompany.com -d mcp.yourcompany.com
 ```
@@ -275,6 +286,7 @@ In **WorkPilot**, **Intuceo.Ai**, or any MCP-compatible agent:
 ```
 
 ### Agent Authentication Flow:
+
 1. Agent calls `authenticate_employee(email, password)` to receive a user session token.
 2. Agent uses that token for tools like `search_available_seats`, `book_seat`, `get_my_bookings`, `cancel_my_booking`.
 3. All bookings reflect instantly in the production database and user web dashboard.

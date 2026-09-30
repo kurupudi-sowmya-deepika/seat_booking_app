@@ -1,17 +1,17 @@
-# intuceo Seat Booking App - Design Document
+# intuceo SpaceHub App - Design Document
 
 ## Overview
 
-**intuceo Seat Booking App** is an enterprise workspace management and booking platform designed for intuceo employees.
+**intuceo SpaceHub App** is an enterprise workspace management and booking platform designed for intuceo employees.
 
 The application provides a secure and modern experience for booking:
 
-* Office seats
-* Workspaces
-* Meeting rooms
-* Conference rooms
-* Collaboration spaces
-* Other bookable workplace resources
+- Office seats
+- Workspaces
+- Meeting rooms
+- Conference rooms
+- Collaboration spaces
+- Other bookable workplace resources
 
 The application uses **Microsoft Azure AD / Microsoft Entra ID** for secure employee authentication and follows a clean intuceo-inspired enterprise design language.
 
@@ -23,16 +23,16 @@ This is the canonical token set for the application. Every color, type size, rad
 
 ## Color
 
-| Token       | Hex       | Role                                                              |
-| ----------- | --------- | ------------------------------------------------------------------ |
-| `primary`   | `#007BC0` | intuceo blue — links, focus states, hover on primary actions, the one strong color signal in the system |
-| `secondary` | `#000000` | Black — headings, body copy, and the fill for the strongest interactive element (the primary button) |
-| `tertiary`  | `#E5E7EB` | Soft gray — borders, dividers, low-emphasis surfaces (chips, secondary-button hover) |
-| `neutral`   | `#FFFFFF` | Page background |
-| `surface`   | `#FFFFFF` | Component background (cards, dialogs, forms) |
-| `on-surface`| `#000000` | Text/icon color on light surfaces |
-| `error`     | `#D00000` | Validation and destructive states only — used sparingly so blue stays the dominant accent |
-| `muted`     | `#6B7280` | Practical addition, not in the base palette: secondary/caption copy where pure black is too heavy |
+| Token        | Hex       | Role                                                                                                    |
+| ------------ | --------- | ------------------------------------------------------------------------------------------------------- |
+| `primary`    | `#007BC0` | intuceo blue — links, focus states, hover on primary actions, the one strong color signal in the system |
+| `secondary`  | `#000000` | Black — headings, body copy, and the fill for the strongest interactive element (the primary button)    |
+| `tertiary`   | `#E5E7EB` | Soft gray — borders, dividers, low-emphasis surfaces (chips, secondary-button hover)                    |
+| `neutral`    | `#FFFFFF` | Page background                                                                                         |
+| `surface`    | `#FFFFFF` | Component background (cards, dialogs, forms)                                                            |
+| `on-surface` | `#000000` | Text/icon color on light surfaces                                                                       |
+| `error`      | `#D00000` | Validation and destructive states only — used sparingly so blue stays the dominant accent               |
+| `muted`      | `#6B7280` | Practical addition, not in the base palette: secondary/caption copy where pure black is too heavy       |
 
 intuceo red is **not** part of this palette. Where earlier drafts of this document called for red as a "brand accent," that role is now served by restraint and black/blue contrast instead — see Design Principles.
 
@@ -40,30 +40,30 @@ intuceo red is **not** part of this palette. Where earlier drafts of this docume
 
 Single family — **intuceosans**, falling back to Helvetica Neue, Helvetica, Arial, sans-serif. Letter-spacing stays at `0px` throughout; the voice is direct and technical, not decorative.
 
-| Style            | Size  | Weight | Line height |
-| ---------------- | ----: | -----: | ----------: |
-| Headline / Display| 64px |    700 |      76.8px |
-| Headline / LG     | 45px |    700 |         54px |
-| Headline / MD     | 32px |    700 |         38px |
-| Headline / SM     | 23px |    600 |         28px |
-| Body / LG         | 18px |    400 |         27px |
-| Body / MD         | 16px |    400 |         24px |
-| Body / SM         | 14px |    400 |         21px |
-| Label / LG        | 16px |    400 |         24px |
-| Label / MD        | 14px |    400 |         21px |
-| Label / SM        | 12px |    400 |         18px |
-| Caption           | 12px |    400 |         18px |
+| Style              | Size | Weight | Line height |
+| ------------------ | ---: | -----: | ----------: |
+| Headline / Display | 64px |    700 |      76.8px |
+| Headline / LG      | 45px |    700 |        54px |
+| Headline / MD      | 32px |    700 |        38px |
+| Headline / SM      | 23px |    600 |        28px |
+| Body / LG          | 18px |    400 |        27px |
+| Body / MD          | 16px |    400 |        24px |
+| Body / SM          | 14px |    400 |        21px |
+| Label / LG         | 16px |    400 |        24px |
+| Label / MD         | 14px |    400 |        21px |
+| Label / SM         | 12px |    400 |        18px |
+| Caption            | 12px |    400 |        18px |
 
 ## Shape
 
-| Token  | Value  | Use                                    |
-| ------ | -----: | --------------------------------------- |
-| `none` |   `0px`| Link buttons — no container to round |
-| `sm`   |   `4px`| Buttons, inputs — small, engineered |
-| `md`   |   `8px`| Cards |
-| `lg`   |  `12px`| Large panels, modals |
-| `xl`   |  `16px`| Hero/feature surfaces |
-| `full` | `9999px`| Chips, pills |
+| Token  |    Value | Use                                  |
+| ------ | -------: | ------------------------------------ |
+| `none` |    `0px` | Link buttons — no container to round |
+| `sm`   |    `4px` | Buttons, inputs — small, engineered  |
+| `md`   |    `8px` | Cards                                |
+| `lg`   |   `12px` | Large panels, modals                 |
+| `xl`   |   `16px` | Hero/feature surfaces                |
+| `full` | `9999px` | Chips, pills                         |
 
 ## Spacing
 
@@ -71,14 +71,14 @@ An 8px-based stepped scale — `xs` 8px, `sm` 16px, `md` 32px, `lg` 56px, `xl` 8
 
 ## Component Tokens
 
-| Component | Spec |
-| --- | --- |
-| **Button — primary** | `secondary` (black) fill, white text, `label-lg`, `sm` radius, `8px 16px` padding, 40px height. Hover → `primary` (blue) fill. |
-| **Button — secondary** | `surface` (white) fill, black text, `label-lg`, `sm` radius, `8px 16px` padding, 40px height. Hover → `tertiary` fill. |
-| **Button — link** | `surface` fill, `primary` (blue) text, `label-lg`, no radius, no padding. Text-only, for low-emphasis actions. |
-| **Card** | `surface` fill, `on-surface` text, `md` radius, `16px` padding. |
-| **Input** | `surface` fill, `on-surface` text, `body-md`, `sm` radius, `8px 16px` padding. |
-| **Chip** | `tertiary` fill, `on-surface` text, `label-md`, `full` radius, `4px 12px` padding. |
+| Component              | Spec                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Button — primary**   | `secondary` (black) fill, white text, `label-lg`, `sm` radius, `8px 16px` padding, 40px height. Hover → `primary` (blue) fill. |
+| **Button — secondary** | `surface` (white) fill, black text, `label-lg`, `sm` radius, `8px 16px` padding, 40px height. Hover → `tertiary` fill.         |
+| **Button — link**      | `surface` fill, `primary` (blue) text, `label-lg`, no radius, no padding. Text-only, for low-emphasis actions.                 |
+| **Card**               | `surface` fill, `on-surface` text, `md` radius, `16px` padding.                                                                |
+| **Input**              | `surface` fill, `on-surface` text, `body-md`, `sm` radius, `8px 16px` padding.                                                 |
+| **Chip**               | `tertiary` fill, `on-surface` text, `label-md`, `full` radius, `4px 12px` padding.                                             |
 
 ## Elevation
 
@@ -88,15 +88,15 @@ The system is intentionally flat. Hierarchy comes from white-on-white layering, 
 
 ## Design Goals
 
-* Simple and professional enterprise experience
-* Consistent intuceo visual identity
-* Secure Azure AD / Microsoft Entra ID authentication
-* Easy seat and workspace booking
-* Meeting and conference room booking
-* Clear booking availability
-* Responsive design across desktop, tablet, and mobile
-* Accessible and keyboard-friendly interface
-* Centralized booking management for employees and administrators
+- Simple and professional enterprise experience
+- Consistent intuceo visual identity
+- Secure Azure AD / Microsoft Entra ID authentication
+- Easy seat and workspace booking
+- Meeting and conference room booking
+- Clear booking availability
+- Responsive design across desktop, tablet, and mobile
+- Accessible and keyboard-friendly interface
+- Centralized booking management for employees and administrators
 
 ---
 
@@ -108,10 +108,10 @@ Use the official intuceo corporate logo as the primary brand element.
 
 ### Placement
 
-* Top-left section of the login card
-* Maintain sufficient whitespace around the logo
-* Preserve the original aspect ratio
-* Never stretch or distort the logo
+- Top-left section of the login card
+- Maintain sufficient whitespace around the logo
+- Preserve the original aspect ratio
+- Never stretch or distort the logo
 
 ---
 
@@ -121,15 +121,15 @@ The multi-color intuceo supergraphic bar is the application's one signature visu
 
 ### Purpose
 
-* The one place brand identity is allowed to be colorful
-* Reinforces that the employee and admin portals are the same product
-* Provides a consistent visual anchor independent of page content
+- The one place brand identity is allowed to be colorful
+- Reinforces that the employee and admin portals are the same product
+- Provides a consistent visual anchor independent of page content
 
 ### Placement
 
-* Full-width, top of viewport, above any header/nav chrome
-* Height: `8px` (thin — a signature accent, not a banner)
-* Present on: Login, `MainLayout` (employee portal), `AdminLayout` (admin portal)
+- Full-width, top of viewport, above any header/nav chrome
+- Height: `8px` (thin — a signature accent, not a banner)
+- Present on: Login, `MainLayout` (employee portal), `AdminLayout` (admin portal)
 
 ---
 
@@ -162,7 +162,7 @@ The login screen is divided into two panels.
 |  intuceo Logo                         Secure Authentication      |
 |                                                                |
 |  intuceo Seat                         Welcome to                 |
-|  Booking App                        intuceo Seat Booking App     |
+|  Booking App                        intuceo SpaceHub App     |
 |                                                                |
 |  Workplace Management               Sign in with your intuceo    |
 |  Badge                              account                    |
@@ -183,7 +183,7 @@ The login screen is divided into two panels.
 Use a light blue-gray background:
 
 ```css
-background: #F4F8FB;
+background: #f4f8fb;
 ```
 
 The panel should contain subtle decorative circular elements using low-opacity intuceo blue (`primary` at ~12% opacity).
@@ -198,9 +198,9 @@ background: rgba(0, 123, 192, 0.12);
 
 Position:
 
-* Top-left
-* Maintain consistent spacing
-* Recommended width: `200px–220px`
+- Top-left
+- Maintain consistent spacing
+- Recommended width: `200px–220px`
 
 ---
 
@@ -216,15 +216,15 @@ Booking App
 Alternative compact representation:
 
 ```text
-intuceo Seat Booking App
+intuceo SpaceHub App
 ```
 
 Typography (headline-lg/display):
 
-* Font: intuceosans
-* Weight: 700
-* Desktop size: `45px–64px`
-* Color: `#000000` (on-surface)
+- Font: intuceosans
+- Weight: 700
+- Desktop size: `45px–64px`
+- Color: `#000000` (on-surface)
 
 ---
 
@@ -239,8 +239,8 @@ WORKSPACE MANAGEMENT
 This is one of the few places the app spends its accent: a `primary`-filled pill on the hero, distinct from the neutral `tertiary` chips used for status elsewhere in the app.
 
 ```css
-background: #007BC0; /* primary */
-color: #FFFFFF;
+background: #007bc0; /* primary */
+color: #ffffff;
 border-radius: 9999px; /* full */
 ```
 
@@ -269,8 +269,8 @@ Display:
 
 Use:
 
-* Font size: `12px`
-* Color: `#6B7280`
+- Font size: `12px`
+- Color: `#6B7280`
 
 ---
 
@@ -286,10 +286,10 @@ SECURE AUTHENTICATION
 
 Style:
 
-* intuceo blue background
-* White text
-* Rounded pill
-* Small uppercase typography
+- intuceo blue background
+- White text
+- Rounded pill
+- Small uppercase typography
 
 ---
 
@@ -299,15 +299,15 @@ Style:
 
 ```text
 Welcome to
-intuceo Seat Booking App
+intuceo SpaceHub App
 ```
 
 Typography (headline-md):
 
-* Font: intuceosans
-* Weight: 700
-* Size: `32px–45px`
-* Color: `#000000` (on-surface)
+- Font: intuceosans
+- Weight: 700
+- Size: `32px–45px`
+- Color: `#000000` (on-surface)
 
 ---
 
@@ -348,24 +348,24 @@ The button should use the Microsoft logo/icon.
 
 ### Features
 
-* Full-width authentication button
-* Microsoft logo
-* Clear hover state
-* Disabled state during authentication
-* Loading indicator while redirecting
-* Keyboard accessibility
-* Elevated shadow
+- Full-width authentication button
+- Microsoft logo
+- Clear hover state
+- Disabled state during authentication
+- Loading indicator while redirecting
+- Keyboard accessibility
+- Elevated shadow
 
 ### Colors
 
 This is the login page's one primary action, so it follows the `button-primary` token: black fill at rest, blue on hover — the same hierarchy every primary button in the app uses.
 
-| Property   | Value     |
-| ---------- | --------- |
+| Property   | Value                 |
+| ---------- | --------------------- |
 | Background | `#000000` (secondary) |
-| Text       | `#FFFFFF` |
-| Hover      | `#007BC0` (primary) |
-| Disabled   | `#9CA3AF` |
+| Text       | `#FFFFFF`             |
+| Hover      | `#007BC0` (primary)   |
+| Disabled   | `#9CA3AF`             |
 
 ### Dimensions
 
@@ -417,14 +417,14 @@ If authentication succeeds but the employee is not authorized:
 
 ```text
 Your account is not authorized to access
-the intuceo Seat Booking App.
+the intuceo SpaceHub App.
 
 Please contact your administrator.
 ```
 
 ---
 
-# Seat Booking Application
+# SpaceHub Application
 
 After successful authentication, users are redirected to the main dashboard.
 
@@ -435,7 +435,7 @@ Identity Validation
       ↓
 Employee Validation
       ↓
-Seat Booking Dashboard
+SpaceHub Dashboard
 ```
 
 ---
@@ -446,7 +446,7 @@ The dashboard should provide a quick overview of workspace availability.
 
 ```text
 +----------------------------------------------------------------+
-| intuceo Seat Booking App                         User Profile    |
+| intuceo SpaceHub App                         User Profile    |
 +----------------------------------------------------------------+
 |                                                                |
 |  Welcome, Employee                                             |
@@ -476,19 +476,19 @@ The dashboard should provide a quick overview of workspace availability.
 
 The application should support multiple workplace booking types.
 
-## 1. Seat Booking
+## 1. SpaceHub
 
 Employees can:
 
-* Search available seats
-* Select a floor
-* Select a building
-* Select a date
-* Select time
-* View seat availability
-* Book a seat
-* Cancel a booking
-* Modify an existing booking
+- Search available seats
+- Select a floor
+- Select a building
+- Select a date
+- Select time
+- View seat availability
+- Book a seat
+- Cancel a booking
+- Modify an existing booking
 
 ---
 
@@ -496,13 +496,13 @@ Employees can:
 
 Employees can:
 
-* Search meeting rooms
-* Select date and time
-* Specify meeting duration
-* Select capacity
-* View room facilities
-* Book a meeting room
-* Cancel or modify bookings
+- Search meeting rooms
+- Select date and time
+- Specify meeting duration
+- Select capacity
+- View room facilities
+- Book a meeting room
+- Cancel or modify bookings
 
 Example room facilities:
 
@@ -617,19 +617,19 @@ Administrators should have additional functionality.
 
 ## Admin Capabilities
 
-* Manage buildings
-* Manage floors
-* Manage seats
-* Manage meeting rooms
-* Manage conference rooms
-* Manage workspace types
-* Manage facilities
-* Manage employees
-* View all bookings
-* Cancel bookings
-* Configure booking rules
-* View utilization reports
-* Manage application settings
+- Manage buildings
+- Manage floors
+- Manage seats
+- Manage meeting rooms
+- Manage conference rooms
+- Manage workspace types
+- Manage facilities
+- Manage employees
+- View all bookings
+- Cancel bookings
+- Configure booking rules
+- View utilization reports
+- Manage application settings
 
 ---
 
@@ -666,12 +666,12 @@ The application can include an AI-powered booking assistant.
 
 The chatbot should help users:
 
-* Find available seats
-* Find meeting rooms
-* Find conference rooms
-* Check existing bookings
-* Explain booking policies
-* Guide users through the booking process
+- Find available seats
+- Find meeting rooms
+- Find conference rooms
+- Check existing bookings
+- Explain booking policies
+- Guide users through the booking process
 
 Example:
 
@@ -734,13 +734,13 @@ Admin
 
 See **Design Tokens — "intuceo Light"** above for the canonical set. Quick reference:
 
-| Color      | Hex       | Usage                  |
-| ---------- | --------- | ---------------------- |
+| Color                  | Hex       | Usage                                                          |
+| ---------------------- | --------- | -------------------------------------------------------------- |
 | Primary (intuceo Blue) | `#007BC0` | Links, focus, hover on primary actions — the one strong accent |
-| Secondary (Black)    | `#000000` | Headings, body text, primary-button fill |
-| Tertiary (Gray)      | `#E5E7EB` | Borders, dividers, chips |
-| Neutral / Surface    | `#FFFFFF` | Page and component backgrounds |
-| Error                | `#D00000` | Validation and destructive states only |
+| Secondary (Black)      | `#000000` | Headings, body text, primary-button fill                       |
+| Tertiary (Gray)        | `#E5E7EB` | Borders, dividers, chips                                       |
+| Neutral / Surface      | `#FFFFFF` | Page and component backgrounds                                 |
+| Error                  | `#D00000` | Validation and destructive states only                         |
 
 There is no red "brand accent" in this palette — destructive actions use `error`, sparingly, and everything else stays black, white, or blue.
 
@@ -757,28 +757,23 @@ intuceosans
 Fallback:
 
 ```css
-font-family:
-'intuceosans',
-'Helvetica Neue',
-Helvetica,
-Arial,
-sans-serif;
+font-family: "intuceosans", "Helvetica Neue", Helvetica, Arial, sans-serif;
 ```
 
 Letter-spacing is `0px` across every style — see the full type scale in Design Tokens above (headline-display through caption).
 
 ## Text Styles (legacy names → token)
 
-| Element           | Token             |    Size |  Weight |
-| ----------------- | ----------------- | ------: | ------: |
-| Application Title | headline-display   |    64px |     700 |
-| Page Heading      | headline-lg/md      | 32–45px | 700 |
-| Section Heading   | headline-sm        |    23px |     600 |
-| Body              | body-md            |    16px |     400 |
-| Subtitle          | body-lg            |    18px |     400 |
-| Button            | label-lg           |    16px |     400 |
-| Badge / Chip      | label-md           |    14px |     400 |
-| Footer / Caption  | caption            |    12px |     400 |
+| Element           | Token            |    Size | Weight |
+| ----------------- | ---------------- | ------: | -----: |
+| Application Title | headline-display |    64px |    700 |
+| Page Heading      | headline-lg/md   | 32–45px |    700 |
+| Section Heading   | headline-sm      |    23px |    600 |
+| Body              | body-md          |    16px |    400 |
+| Subtitle          | body-lg          |    18px |    400 |
+| Button            | label-lg         |    16px |    400 |
+| Badge / Chip      | label-md         |    14px |    400 |
+| Footer / Caption  | caption          |    12px |    400 |
 
 ---
 
@@ -787,9 +782,9 @@ Letter-spacing is `0px` across every style — see the full type scale in Design
 Application cards follow the `card` component token: flat, bordered, minimally shadowed.
 
 ```css
-background: #FFFFFF;   /* surface */
-border: 1px solid #E5E7EB; /* tertiary */
-border-radius: 8px;    /* md */
+background: #ffffff; /* surface */
+border: 1px solid #e5e7eb; /* tertiary */
+border-radius: 8px; /* md */
 padding: 16px;
 ```
 
@@ -797,11 +792,11 @@ Avoid heavy or stacked shadows — see Elevation in Design Tokens. Hierarchy com
 
 Cards should primarily be used for:
 
-* Seat availability
-* Room availability
-* Booking summaries
-* Dashboard statistics
-* User information
+- Seat availability
+- Room availability
+- Booking summaries
+- Dashboard statistics
+- User information
 
 ---
 
@@ -849,14 +844,14 @@ The application should target **WCAG 2.1 AA**.
 
 ## Requirements
 
-* Keyboard navigation
-* Visible focus indicators
-* Screen-reader-compatible labels
-* Sufficient color contrast
-* Accessible buttons
-* Accessible form controls
-* Clear validation messages
-* Do not rely only on color to indicate booking status
+- Keyboard navigation
+- Visible focus indicators
+- Screen-reader-compatible labels
+- Sufficient color contrast
+- Accessible buttons
+- Accessible form controls
+- Clear validation messages
+- Do not rely only on color to indicate booking status
 
 Authentication button:
 
@@ -870,19 +865,19 @@ aria-label="Sign in with Microsoft"
 
 ## Desktop ≥1200px
 
-* Two-column login screen
-* Full dashboard navigation
-* Multi-column resource cards
-* Calendar and booking information displayed side-by-side
+- Two-column login screen
+- Full dashboard navigation
+- Multi-column resource cards
+- Calendar and booking information displayed side-by-side
 
 ---
 
 ## Tablet 768px–1199px
 
-* Reduced card width
-* Responsive navigation
-* Two-column resource cards where space permits
-* Reduced spacing
+- Reduced card width
+- Responsive navigation
+- Two-column resource cards where space permits
+- Reduced spacing
 
 ---
 
@@ -954,19 +949,19 @@ My Bookings
 
 The application should use enterprise security best practices.
 
-* Microsoft Entra ID / Azure AD SSO
-* HTTPS-only production deployment
-* Backend token validation
-* Secure session management
-* Authorization based on user roles
-* Admin access control
-* CSRF protection where applicable
-* Secure API communication
-* No client secrets in frontend code
-* No password storage
-* Audit logging for administrative actions
-* Booking ownership validation
-* Server-side availability validation
+- Microsoft Entra ID / Azure AD SSO
+- HTTPS-only production deployment
+- Backend token validation
+- Secure session management
+- Authorization based on user roles
+- Admin access control
+- CSRF protection where applicable
+- Secure API communication
+- No client secrets in frontend code
+- No password storage
+- Audit logging for administrative actions
+- Booking ownership validation
+- Server-side availability validation
 
 ---
 
@@ -1060,7 +1055,7 @@ Potential future features include:
 
 # Design Summary
 
-The **intuceo Seat Booking App** should provide a clean, modern, and enterprise-focused workspace booking experience.
+The **intuceo SpaceHub App** should provide a clean, modern, and enterprise-focused workspace booking experience.
 
 The design combines:
 
@@ -1069,7 +1064,7 @@ intuceo Branding
       +
 Microsoft Entra ID
       +
-Seat Booking
+SpaceHub
       +
 Meeting Room Booking
       +

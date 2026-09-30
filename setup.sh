@@ -2,7 +2,7 @@
 set -e
 
 echo "====================================================================="
-echo " SEAT BOOKING APPLICATION - AUTOMATED SETUP SCRIPT"
+echo " SpaceHub APPLICATION - AUTOMATED SETUP SCRIPT"
 echo "====================================================================="
 echo ""
 

@@ -1,4 +1,4 @@
-# 🛠️ Seat Booking Application - Setup & Installation Guide
+# 🛠️ SpaceHub Application - Setup & Installation Guide
 
 This document outlines the step-by-step setup procedure for local development, testing, and production.
 
@@ -7,13 +7,17 @@ This document outlines the step-by-step setup procedure for local development, t
 ## ⚡ Quick 1-Click Automated Setup
 
 ### Windows Users
+
 Run `setup.bat` from Command Prompt or PowerShell:
+
 ```cmd
 setup.bat
 ```
 
 ### macOS / Linux Users
+
 Run the setup shell script:
+
 ```bash
 chmod +x setup.sh
 ./setup.sh
@@ -24,23 +28,29 @@ chmod +x setup.sh
 ## 📋 Manual Step-by-Step Setup
 
 ### 1. Prerequisites
-* **Python**: 3.10+
-* **Node.js**: 18+ and `npm`
-* **PostgreSQL**: 14+ running locally or in Docker
+
+- **Python**: 3.10+
+- **Node.js**: 18+ and `npm`
+- **PostgreSQL**: 14+ running locally or in Docker
 
 ---
 
 ### 2. Environment Configuration
+
 Copy `.env.example` to `.env`:
+
 ```bash
 cp .env.example .env
 ```
+
 Ensure database credentials, `JWT_SECRET`, and `GEMINI_API_KEY` are configured.
 
 ---
 
 ### 3. Database Initialization (PostgreSQL)
+
 Create the database in PostgreSQL if it doesn't exist:
+
 ```sql
 CREATE DATABASE seat_booking;
 ```
@@ -48,6 +58,7 @@ CREATE DATABASE seat_booking;
 ---
 
 ### 4. Backend Setup
+
 ```bash
 cd backend
 
@@ -73,13 +84,16 @@ python scripts/seed.py
 # Start FastAPI dev server
 uvicorn app.main:app --reload --port 8000
 ```
-* **Swagger API Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
-* **Backend Health Endpoint:** [http://localhost:8000/health](http://localhost:8000/health)
+
+- **Swagger API Documentation:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Backend Health Endpoint:** [http://localhost:8000/health](http://localhost:8000/health)
 
 ---
 
 ### 5. Frontend Setup
+
 In a new terminal:
+
 ```bash
 cd frontend
 
@@ -89,23 +103,29 @@ npm install --legacy-peer-deps
 # Start Vite dev server
 npm run dev
 ```
-* **Frontend Web Application:** [http://localhost:5173](http://localhost:5173)
+
+- **Frontend Web Application:** [http://localhost:5173](http://localhost:5173)
 
 ---
 
 ### 6. Model Context Protocol (MCP) Server Setup
+
 In a new terminal:
 
 #### Streamable HTTP Mode (for WorkPilot / Network Clients):
+
 ```powershell
 $env:MCP_TRANSPORT="streamable-http"
 $env:MCP_PORT="8100"
 python -m mcp_server.server
 ```
-* **MCP Server Endpoint:** `http://localhost:8100/mcp`
+
+- **MCP Server Endpoint:** `http://localhost:8100/mcp`
 
 #### Standard I/O Mode (for Claude Desktop / Antigravity IDE):
+
 Add the configuration from `mcp_config.json` into your client configuration:
+
 ```json
 {
   "mcpServers": {
@@ -126,6 +146,7 @@ Add the configuration from `mcp_config.json` into your client configuration:
 ## 🧪 Testing the Setup
 
 To run automated end-to-end MCP verification:
+
 ```bash
 python -m mcp_server.test_mcp
 ```
@@ -134,7 +155,7 @@ python -m mcp_server.test_mcp
 
 ## 🔑 Default Test Accounts
 
-| Role | Email | Password | Starting Wallet Balance |
-| :--- | :--- | :--- | :--- |
-| **System Admin** | `admin@example.com` | `admin123` | ₹50,000.00 |
-| **Regular User** | `user@example.com` | `user123` | ₹50,000.00 |
+| Role             | Email               | Password   | Starting Wallet Balance |
+| :--------------- | :------------------ | :--------- | :---------------------- |
+| **System Admin** | `admin@example.com` | `admin123` | ₹50,000.00              |
+| **Regular User** | `user@example.com`  | `user123`  | ₹50,000.00              |

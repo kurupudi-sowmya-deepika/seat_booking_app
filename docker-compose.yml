@@ -1,4 +1,4 @@
-# Runs the whole Seat Booking stack: Postgres, the FastAPI backend, the React
+# Runs the whole SpaceHub stack: Postgres, the FastAPI backend, the React
 # frontend (built + served via nginx), and the MCP server (streamable-http).
 # All services share the repo-root `.env` (see `.env.example`); a few keys are
 # overridden per-service below because they mean something different inside
@@ -20,7 +20,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-seat_booking}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-seat_booking}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10

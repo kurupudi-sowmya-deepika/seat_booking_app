@@ -146,7 +146,7 @@ async def create_topup_session(
                     'unit_amount': int(topup_in.amount * 100),
                     'product_data': {
                         'name': 'Wallet Top-up',
-                        'description': 'Add credits to your Seat Booking App wallet',
+                        'description': 'Add credits to your SpaceHub App wallet',
                     },
                 },
                 'quantity': 1,

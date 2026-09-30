@@ -1,4 +1,4 @@
-# Production image for the Seat Booking FastAPI backend.
+# Production image for the SpaceHub FastAPI backend.
 # Build context must be the backend/ directory (see docker-compose.yml).
 FROM python:3.12-slim
 

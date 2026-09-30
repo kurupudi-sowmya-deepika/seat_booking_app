@@ -64,13 +64,13 @@ export const AdminLayout: React.FC = () => {
             {sidebarOpen ? (
               <Link to="/" className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm overflow-hidden">
-                  <img src="/favicon.png" alt="Seat Booking App" className="h-7 w-7 object-contain" />
+                  <img src="/favicon.png" alt="SpaceHub App" className="h-7 w-7 object-contain" />
                 </div>
-                <span className="font-extrabold text-sm tracking-wide text-white">Seat Booking App</span>
+                <span className="font-extrabold text-sm tracking-wide text-white">SpaceHub App</span>
               </Link>
             ) : (
               <Link to="/" className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm overflow-hidden mx-auto">
-                <img src="/favicon.png" alt="Seat Booking App" className="h-7 w-7 object-contain" />
+                <img src="/favicon.png" alt="SpaceHub App" className="h-7 w-7 object-contain" />
               </Link>
             )}
             <button

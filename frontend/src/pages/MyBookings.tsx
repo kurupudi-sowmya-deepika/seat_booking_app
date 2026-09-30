@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import api from '../services/api';
 import { Link } from 'react-router-dom';
@@ -9,6 +9,41 @@ import {
   Download, Edit3, ArrowUpRight, Plus, Sparkles
 } from 'lucide-react';
 import { DataTable } from '../components/DataTable';
+import type { SortDirection } from '../components/DataTable';
+
+const BOOKING_TYPE_OPTIONS = [
+  { value: 'ALL', label: 'All types' },
+  { value: 'SEAT', label: 'Desk' },
+  { value: 'MEETING_ROOM', label: 'Meeting Room' },
+  { value: 'CONFERENCE_ROOM', label: 'Conference Room' },
+  { value: 'DAY_PASS', label: 'Day Pass' },
+] as const;
+
+const DEFAULT_SORT_KEY = 'booking_date';
+const DEFAULT_SORT_DIRECTION: SortDirection = 'desc';
+
+const resourceLabel = (b: any): string =>
+  b.seat_number ? `Desk ${b.seat_number}` : b.room_name || b.day_pass_name || b.booking_type || '';
+
+const startLabel = (b: any): string =>
+  b.start_time ? String(b.start_time).slice(0, 5) : (b.time_slot_label || 'Full day').split(' - ')[0];
+
+const endLabel = (b: any): string =>
+  b.end_time ? String(b.end_time).slice(0, 5) : (b.time_slot_label || 'Full day').split(' - ')[1] || '—';
+
+// Value each sortable column orders by (strings compare case-insensitively, numbers numerically).
+const SORT_ACCESSORS: Record<string, (b: any) => string | number> = {
+  id: (b) => b.id || '',
+  booking_type: (b) => b.booking_type || '',
+  resource: (b) => resourceLabel(b).toLowerCase(),
+  location: (b) => `${b.location_name || ''} ${b.branch_name || ''}`.toLowerCase(),
+  booking_date: (b) => b.booking_date || '',
+  start: (b) => startLabel(b),
+  end: (b) => endLabel(b),
+  number_of_people: (b) => Number(b.number_of_people || 1),
+  amount: (b) => Number(b.amount || 0),
+  status: (b) => b.status || '',
+};
 
 export const MyBookings: React.FC = () => {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -16,7 +51,12 @@ export const MyBookings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ALL' | 'UPCOMING' | 'COMPLETED' | 'CANCELLED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  
+  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortKey, setSortKey] = useState<string>(DEFAULT_SORT_KEY);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(DEFAULT_SORT_DIRECTION);
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
@@ -61,6 +101,31 @@ export const MyBookings: React.FC = () => {
   useEffect(() => {
     fetchBookings();
   }, []);
+
+  // Any change to the visible result set sends the user back to the first page.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, typeFilter, dateFrom, dateTo, sortKey, sortDirection]);
+
+  const handleSort = (key: string) => {
+    if (key === sortKey) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const hasActiveFilters = typeFilter !== 'ALL' || Boolean(dateFrom) || Boolean(dateTo) || Boolean(searchQuery.trim());
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('ALL');
+    setDateFrom('');
+    setDateTo('');
+    setSortKey(DEFAULT_SORT_KEY);
+    setSortDirection(DEFAULT_SORT_DIRECTION);
+  };
 
   const handleCancelBooking = async (bookingId: string) => {
     setCancelLoading(true);
@@ -177,6 +242,12 @@ export const MyBookings: React.FC = () => {
       if (b.status !== 'CANCELLED') return false;
     }
 
+    if (typeFilter !== 'ALL' && b.booking_type !== typeFilter) return false;
+
+    // booking_date is an ISO 'YYYY-MM-DD' string, so lexical comparison is date-correct (and timezone-safe).
+    if (dateFrom && (b.booking_date || '') < dateFrom) return false;
+    if (dateTo && (b.booking_date || '') > dateTo) return false;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const id = (b.id || '').toLowerCase();
@@ -207,9 +278,21 @@ export const MyBookings: React.FC = () => {
     return <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-extrabold text-[11px] rounded-full uppercase">Confirmed</span>;
   };
 
-  const totalPages = Math.ceil(filteredBookings.length / pageSize) || 1;
+  const sortedBookings = useMemo(() => {
+    const accessor = SORT_ACCESSORS[sortKey] ?? SORT_ACCESSORS[DEFAULT_SORT_KEY];
+    const factor = sortDirection === 'asc' ? 1 : -1;
+    return [...filteredBookings].sort((a, b) => {
+      const av = accessor(a);
+      const bv = accessor(b);
+      if (av < bv) return -1 * factor;
+      if (av > bv) return 1 * factor;
+      return 0;
+    });
+  }, [filteredBookings, sortKey, sortDirection]);
+
+  const totalPages = Math.ceil(sortedBookings.length / pageSize) || 1;
   const startIndex = (currentPage - 1) * pageSize;
-  const paginatedBookings = filteredBookings.slice(startIndex, startIndex + pageSize);
+  const paginatedBookings = sortedBookings.slice(startIndex, startIndex + pageSize);
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
@@ -317,6 +400,84 @@ export const MyBookings: React.FC = () => {
         </div>
       </div>
 
+      {/* Type / date range / sort filters */}
+      <div className="bg-white p-4 rounded-3xl border border-gray-200/80 shadow-sm flex flex-col md:flex-row md:flex-wrap md:items-end gap-4">
+        <label className="flex flex-col gap-1 text-xs font-bold text-gray-600">
+          Booking type
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+          >
+            {BOOKING_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-bold text-gray-600">
+          From date
+          <input
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-bold text-gray-600">
+          To date
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-bold text-gray-600">
+          Sort by
+          <div className="flex gap-2">
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value)}
+              className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-[#007bc0]"
+            >
+              <option value="booking_date">Date</option>
+              <option value="booking_type">Type</option>
+              <option value="resource">Room / Workspace</option>
+              <option value="location">Location</option>
+              <option value="start">Start time</option>
+              <option value="end">End time</option>
+              <option value="number_of_people">Users</option>
+              <option value="amount">Total</option>
+              <option value="status">Status</option>
+              <option value="id">Booking ID</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+              className="px-3 py-2 text-sm font-bold bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100"
+              title="Toggle sort order"
+            >
+              {sortDirection === 'asc' ? '▲ Asc' : '▼ Desc'}
+            </button>
+          </div>
+        </label>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       {/* Bookings Cards Grid */}
       {loading ? (
         <div className="p-12 text-center text-gray-400 bg-white rounded-3xl border">Loading reservations...</div>
@@ -327,16 +488,16 @@ export const MyBookings: React.FC = () => {
         <div className="hidden lg:block">
           <DataTable
             columns={[
-              { key: 'id', header: 'Booking ID', render: (b) => <span className="font-mono font-bold">#{b.id.slice(0, 8).toUpperCase()}</span> },
-              { key: 'booking_type', header: 'Type', render: (b) => b.booking_type?.replace('_', ' ') },
-              { key: 'resource', header: 'Room / Workspace', render: (b) => b.seat_number ? `Desk ${b.seat_number}` : b.room_name || b.day_pass_name || b.booking_type },
-              { key: 'location', header: 'Location', render: (b) => `${b.location_name || ''} · ${b.branch_name || ''}` },
-              { key: 'booking_date', header: 'Date' },
-              { key: 'start', header: 'Start', render: (b) => b.start_time ? String(b.start_time).slice(0, 5) : (b.time_slot_label || 'Full day').split(' - ')[0] },
-              { key: 'end', header: 'End', render: (b) => b.end_time ? String(b.end_time).slice(0, 5) : (b.time_slot_label || 'Full day').split(' - ')[1] || '—' },
-              { key: 'number_of_people', header: 'Users', render: (b) => b.number_of_people || 1 },
-              { key: 'amount', header: 'Total', render: (b) => `₹${b.amount}` },
-              { key: 'status', header: 'Status', render: (b) => getBadge(b) },
+              { key: 'id', header: 'Booking ID', sortable: true, render: (b) => <span className="font-mono font-bold">#{b.id.slice(0, 8).toUpperCase()}</span> },
+              { key: 'booking_type', header: 'Type', sortable: true, render: (b) => b.booking_type?.replace('_', ' ') },
+              { key: 'resource', header: 'Room / Workspace', sortable: true, render: (b) => resourceLabel(b) },
+              { key: 'location', header: 'Location', sortable: true, render: (b) => `${b.location_name || ''} · ${b.branch_name || ''}` },
+              { key: 'booking_date', header: 'Date', sortable: true },
+              { key: 'start', header: 'Start', sortable: true, render: (b) => startLabel(b) },
+              { key: 'end', header: 'End', sortable: true, render: (b) => endLabel(b) },
+              { key: 'number_of_people', header: 'Users', sortable: true, render: (b) => b.number_of_people || 1 },
+              { key: 'amount', header: 'Total', sortable: true, render: (b) => `₹${b.amount}` },
+              { key: 'status', header: 'Status', sortable: true, render: (b) => getBadge(b) },
               { key: 'actions', header: 'Actions', render: (b) => (
                 <div className="flex gap-2">
                   <button onClick={() => setSelectedBookingForDetails(b)} className="px-2 py-1 bg-blue-50 text-[#007bc0] rounded-lg text-[12px] font-bold">View</button>
@@ -348,6 +509,9 @@ export const MyBookings: React.FC = () => {
             ]}
             rows={paginatedBookings}
             rowKey={(b) => b.id}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSort={handleSort}
           />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:hidden">
@@ -672,7 +836,7 @@ export const MyBookings: React.FC = () => {
 
             <div className="text-center pb-4 border-b border-gray-100">
               <span className="px-3 py-1 bg-blue-100 text-[#007bc0] text-[10px] font-black uppercase tracking-wider rounded-full">
-                Seat Booking App Workspace Pass
+                SpaceHub App Workspace Pass
               </span>
               <h3 className="text-xl font-black text-gray-900 mt-2">
                 {selectedBookingForDetails.seat_number ? `Desk ${selectedBookingForDetails.seat_number}` : selectedBookingForDetails.room_name || selectedBookingForDetails.booking_type}

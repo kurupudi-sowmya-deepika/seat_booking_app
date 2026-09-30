@@ -1,4 +1,4 @@
-# Production image for the Seat Booking MCP server.
+# Production image for the SpaceHub MCP server.
 # Build context must be the REPO ROOT (not mcp_server/), since this package
 # imports as `mcp_server.*` - see docker-compose.yml.
 FROM python:3.12-slim

@@ -1,6 +1,6 @@
-# 🔌 Seat Booking MCP Server
+# 🔌 SpaceHub MCP Server
 
-The **Seat Booking MCP Server** exposes the user-portal capabilities of the Seat Booking application to external AI agents (e.g., **WorkPilot**, **Intuceo.Ai**, **Claude Desktop**, and **Antigravity**) via the standardized [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).
+The **SpaceHub MCP Server** exposes the user-portal capabilities of the SpaceHub application to external AI agents (e.g., **WorkPilot**, **Intuceo.Ai**, **Claude Desktop**, and **Antigravity**) via the standardized [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).
 
 ---
 
@@ -50,7 +50,7 @@ it, and never commit real credentials to this repo's tracked config files.
 ### Trusted-caller mode (used by WorkPilot)
 
 An application such as WorkPilot already knows who its signed-in employee is but does not hold their
-Seat Booking password. For that case the MCP server and the Seat API support a _trusted caller_:
+SpaceHub password. For that case the MCP server and the Seat API support a _trusted caller_:
 
 ```
 client --(Authorization: Bearer MCP_AUTH_TOKEN, tool arg employee_email)--> MCP server
@@ -75,7 +75,7 @@ Configure the following environment variables in `.env` (not committed) or in
 your MCP client configuration:
 
 ```env
-# URL of the running Seat Booking backend
+# URL of the running SpaceHub backend
 SEAT_BOOKING_API_URL=http://localhost:8000/api
 
 # Transport: "stdio" (default, for a locally-spawned client like Claude
@@ -144,7 +144,7 @@ its HTTP endpoint:
 ```
 
 Flow for the external application, matching
-`External AI Agent -> MCP Client -> Seat Booking MCP Server -> Existing FastAPI Services -> PostgreSQL`:
+`External AI Agent -> MCP Client -> SpaceHub MCP Server -> Existing FastAPI Services -> PostgreSQL`:
 
 1. Connect the MCP client to the URL above and list tools.
 2. Call `authenticate_employee(email, password)` with the real employee's own
